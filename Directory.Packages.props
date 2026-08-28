@@ -8,8 +8,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Rule 8. Analyzer only: referenced with PrivateAssets="all" everywhere. -->
-    <PackageVersion Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="3.11.0" />
+    <!--
+      Rule 8. Analyzer only: referenced with PrivateAssets="all" everywhere.
+
+      3.11.0 does not exist on nuget.org (CI's restore proved it: NuGet's nearest-version
+      substitution landed on 4.14.0, which TreatWarningsAsErrors correctly turned into a
+      restore failure rather than silently building against an unpinned version). Pinned to
+      the version CI itself resolved and proved restorable.
+    -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="4.14.0" />
 
     <!-- Rule 3. The standalone netstandard2.0 graphics primitives, NOT Microsoft.Maui.Controls. -->
     <PackageVersion Include="Microsoft.Maui.Graphics" Version="8.0.100" />
