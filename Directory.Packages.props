@@ -27,9 +27,9 @@
       rather than the projects, so a leaked type or a stray dependency breaks the build
       here instead of a consumer's three months from now. Run scripts/pack-local first.
     -->
-    <PackageVersion Include="Argus.Core" Version="$(ArgusPackageVersion)" />
-    <PackageVersion Include="Argus.Graphics" Version="$(ArgusPackageVersion)" />
-    <PackageVersion Include="Argus.Testing" Version="$(ArgusPackageVersion)" />
+    <PackageVersion Include="BlackBeard.Argus.Core" Version="$(ArgusPackageVersion)" />
+    <PackageVersion Include="BlackBeard.Argus.Graphics" Version="$(ArgusPackageVersion)" />
+    <PackageVersion Include="BlackBeard.Argus.Testing" Version="$(ArgusPackageVersion)" />
   </ItemGroup>
 
 </Project>

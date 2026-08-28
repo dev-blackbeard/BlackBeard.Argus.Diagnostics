@@ -10,7 +10,7 @@
     <RootNamespace>Argus.Graphics</RootNamespace>
     <AssemblyName>Argus.Graphics</AssemblyName>
     <IsPackable>true</IsPackable>
-    <PackageId>Argus.Graphics</PackageId>
+    <PackageId>BlackBeard.Argus.Graphics</PackageId>
     <Description>Presentation for Argus stream diagnostics: severity-ordered colours, debug subtitles, and a compatibility facade for callers migrating from a colour-returning API. Depends on Microsoft.Maui.Graphics only.</Description>
   </PropertyGroup>
 

@@ -41,12 +41,12 @@ public sealed class PackageSurfaceTests
     [Fact]
     public void ArgusCorePackageDeclaresNoDependencies()
     {
-        string package = FindPackage("Argus.Core");
+        string package = FindPackage("BlackBeard.Argus.Core");
         IReadOnlyList<string> dependencies = ReadDependencies(package, excludeFrameworkPlumbing: true);
 
         Assert.True(
             dependencies.Count == 0,
-            "Argus.Core must have zero package dependencies, but " + Path.GetFileName(package)
+            "BlackBeard.Argus.Core must have zero package dependencies, but " + Path.GetFileName(package)
                 + " declares: " + string.Join(", ", dependencies));
     }
 
@@ -54,15 +54,15 @@ public sealed class PackageSurfaceTests
     [Fact]
     public void ArgusGraphicsDependsOnlyOnCoreAndMauiGraphics()
     {
-        string package = FindPackage("Argus.Graphics");
+        string package = FindPackage("BlackBeard.Argus.Graphics");
         IReadOnlyList<string> dependencies = ReadDependencies(package, excludeFrameworkPlumbing: true);
 
         foreach (string dependency in dependencies)
         {
             Assert.True(
-                string.Equals(dependency, "Argus.Core", StringComparison.Ordinal)
+                string.Equals(dependency, "BlackBeard.Argus.Core", StringComparison.Ordinal)
                     || string.Equals(dependency, "Microsoft.Maui.Graphics", StringComparison.Ordinal),
-                "Argus.Graphics must depend only on Argus.Core and Microsoft.Maui.Graphics, but declares " + dependency);
+                "BlackBeard.Argus.Graphics must depend only on BlackBeard.Argus.Core and Microsoft.Maui.Graphics, but declares " + dependency);
         }
 
         Assert.Contains("Microsoft.Maui.Graphics", dependencies);
@@ -73,23 +73,23 @@ public sealed class PackageSurfaceTests
     {
         Assert.Equal(
             new[] { "netstandard2.0", "net8.0" },
-            SortedFrameworks(FindPackage("Argus.Core")));
+            SortedFrameworks(FindPackage("BlackBeard.Argus.Core")));
 
         Assert.Equal(
             new[] { "netstandard2.0", "net8.0" },
-            SortedFrameworks(FindPackage("Argus.Testing")));
+            SortedFrameworks(FindPackage("BlackBeard.Argus.Testing")));
 
         Assert.Equal(
             new[] { "netstandard2.0" },
-            SortedFrameworks(FindPackage("Argus.Graphics")));
+            SortedFrameworks(FindPackage("BlackBeard.Argus.Graphics")));
     }
 
     [Fact]
     public void SymbolPackagesAreProduced()
     {
-        Assert.True(File.Exists(FindPackage("Argus.Core", ".snupkg")));
-        Assert.True(File.Exists(FindPackage("Argus.Graphics", ".snupkg")));
-        Assert.True(File.Exists(FindPackage("Argus.Testing", ".snupkg")));
+        Assert.True(File.Exists(FindPackage("BlackBeard.Argus.Core", ".snupkg")));
+        Assert.True(File.Exists(FindPackage("BlackBeard.Argus.Graphics", ".snupkg")));
+        Assert.True(File.Exists(FindPackage("BlackBeard.Argus.Testing", ".snupkg")));
     }
 
     /// <summary>
@@ -146,7 +146,7 @@ public sealed class PackageSurfaceTests
     [Fact]
     public void PackagedAssembliesCarryXmlDocumentation()
     {
-        string package = FindPackage("Argus.Core");
+        string package = FindPackage("BlackBeard.Argus.Core");
         using (ZipArchive archive = ZipFile.OpenRead(package))
         {
             bool found = false;

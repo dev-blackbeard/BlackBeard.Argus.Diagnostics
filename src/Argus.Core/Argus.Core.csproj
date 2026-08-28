@@ -5,7 +5,7 @@
     <RootNamespace>Argus</RootNamespace>
     <AssemblyName>Argus.Core</AssemblyName>
     <IsPackable>true</IsPackable>
-    <PackageId>Argus.Core</PackageId>
+    <PackageId>BlackBeard.Argus.Core</PackageId>
     <Description>Stream diagnostics for geospatial entity feeds. Observes samples of position, attitude and velocity and emits structured, self-describing findings. Emits diagnostics only — no presentation, no dependencies.</Description>
   </PropertyGroup>
 

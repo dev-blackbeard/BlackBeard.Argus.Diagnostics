@@ -5,7 +5,7 @@
     <RootNamespace>Argus.Testing</RootNamespace>
     <AssemblyName>Argus.Testing</AssemblyName>
     <IsPackable>true</IsPackable>
-    <PackageId>Argus.Testing</PackageId>
+    <PackageId>BlackBeard.Argus.Testing</PackageId>
     <Description>A corruption-injection harness for Argus. Generates synthetic entity streams and deliberately damages them the way a real wire format does — byte order, field offsets, scale, units, loss, reordering — so detectors can be tested against faults rather than against assertions about faults.</Description>
   </PropertyGroup>
 

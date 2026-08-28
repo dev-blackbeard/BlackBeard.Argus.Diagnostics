@@ -26,9 +26,9 @@
     Run scripts/pack-local before building this project.
   -->
   <ItemGroup>
-    <PackageReference Include="Argus.Core" />
-    <PackageReference Include="Argus.Graphics" />
-    <PackageReference Include="Argus.Testing" />
+    <PackageReference Include="BlackBeard.Argus.Core" />
+    <PackageReference Include="BlackBeard.Argus.Graphics" />
+    <PackageReference Include="BlackBeard.Argus.Testing" />
   </ItemGroup>
 
   <ItemGroup>
