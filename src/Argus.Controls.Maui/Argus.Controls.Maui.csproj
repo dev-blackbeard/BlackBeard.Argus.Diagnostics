@@ -13,7 +13,10 @@
       matching how the standard MAUI project templates handle this, and how this repository's own
       CI matrix (ubuntu-latest, windows-latest) needs it split.
     -->
-    <TargetFrameworks>net8.0-android</TargetFrameworks>
+    <!-- Bare net8.0-android resolved to an Android API level workload that has since aged out of
+         support on newer 8.0.x SDK patches (NETSDK1202); pinned to a specific, still-supported
+         API level instead. -->
+    <TargetFrameworks>net8.0-android34.0</TargetFrameworks>
     <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net8.0-windows10.0.19041.0</TargetFrameworks>
     <UseMaui>true</UseMaui>
     <SingleProject>false</SingleProject>
