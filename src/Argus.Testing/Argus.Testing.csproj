@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>
+    <RootNamespace>Argus.Testing</RootNamespace>
+    <AssemblyName>Argus.Testing</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <PackageId>Argus.Testing</PackageId>
+    <Description>A corruption-injection harness for Argus. Generates synthetic entity streams and deliberately damages them the way a real wire format does — byte order, field offsets, scale, units, loss, reordering — so detectors can be tested against faults rather than against assertions about faults.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Argus.Core/Argus.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="PublicAPI.Shipped.txt" />
+    <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
+  </ItemGroup>
+
+</Project>

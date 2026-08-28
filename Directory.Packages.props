@@ -1,0 +1,35 @@
+<Project>
+
+  <!-- Rule 10: central package management. Versions live here and nowhere else. -->
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Rule 8. Analyzer only: referenced with PrivateAssets="all" everywhere. -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="3.11.0" />
+
+    <!-- Rule 3. The standalone netstandard2.0 graphics primitives, NOT Microsoft.Maui.Controls. -->
+    <PackageVersion Include="Microsoft.Maui.Graphics" Version="8.0.100" />
+  </ItemGroup>
+
+  <ItemGroup Label="Test">
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageVersion Include="xunit" Version="2.9.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup Label="Argus packages consumed from ./artifacts/local-feed">
+    <!--
+      samples/ and tests/Argus.Package.Tests deliberately consume the packed artifacts
+      rather than the projects, so a leaked type or a stray dependency breaks the build
+      here instead of a consumer's three months from now. Run scripts/pack-local first.
+    -->
+    <PackageVersion Include="Argus.Core" Version="$(ArgusPackageVersion)" />
+    <PackageVersion Include="Argus.Graphics" Version="$(ArgusPackageVersion)" />
+    <PackageVersion Include="Argus.Testing" Version="$(ArgusPackageVersion)" />
+  </ItemGroup>
+
+</Project>

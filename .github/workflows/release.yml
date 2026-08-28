@@ -1,0 +1,68 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Package version to publish, without the leading v'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  publish:
+    name: publish to nuget.org
+    runs-on: ubuntu-latest
+
+    # A deployment environment, so publishing needs whatever approval the repository's
+    # environment protection rules require. Publishing is the one irreversible step in this
+    # repository: a package version, once pushed, cannot be replaced.
+    environment: nuget
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # SourceLink needs history to resolve the commit.
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "value=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The hygiene check runs again here rather than being inherited from ci. This is the
+      # last point at which anything can be stopped, and it is cheap.
+      - name: Check for domain specifics
+        run: scripts/check-public-hygiene
+
+      - name: Pack
+        shell: bash
+        run: scripts/pack-local --version "${{ steps.version.outputs.value }}" --configuration Release --clean
+
+      - name: Verify the packages before publishing
+        run: dotnet test tests/Argus.Package.Tests/Argus.Package.Tests.csproj --configuration Release -p:ArgusPackageVersion="${{ steps.version.outputs.value }}"
+
+      - name: Push
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          dotnet nuget push "artifacts/local-feed/*.nupkg" \
+            --api-key "$NUGET_API_KEY" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate

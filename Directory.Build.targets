@@ -1,0 +1,54 @@
+<Project>
+
+  <!--
+    Architecture rule 2 — Argus.Core has zero dependency PackageReference entries.
+
+    "Dependency" is the operative word. A PackageReference marked PrivateAssets="all"
+    (an analyzer, a build task, a source generator) contributes nothing to the produced
+    .nupkg's <dependencies> and therefore nothing to a consumer's restore graph. That is
+    how Microsoft.CodeAnalysis.PublicApiAnalyzers (rule 8) coexists with rule 2.
+
+    Implicit references added by the SDK itself (NETStandard.Library for netstandard2.0)
+    are excluded for the same reason: they are framework plumbing, not a choice.
+
+    Argus.Package.Tests re-checks the same invariant from the other side, by asserting
+    the packed Argus.Core.nupkg declares no dependencies at all.
+  -->
+  <PropertyGroup>
+    <ArgusForbidPackageDependencies Condition="'$(ArgusForbidPackageDependencies)' == ''">false</ArgusForbidPackageDependencies>
+  </PropertyGroup>
+
+  <Target Name="ArgusGuardNoPackageDependencies"
+          Condition="'$(ArgusForbidPackageDependencies)' == 'true'"
+          BeforeTargets="CollectPackageReferences;Build;Pack">
+    <ItemGroup>
+      <_ArgusOffendingPackageReference Include="@(PackageReference)"
+                                       Condition="'%(PackageReference.IsImplicitlyDefined)' != 'true'
+                                                  and '%(PackageReference.PrivateAssets)' != 'all'
+                                                  and '%(PackageReference.ExcludeAssets)' != 'all'" />
+    </ItemGroup>
+    <Error Condition="'@(_ArgusOffendingPackageReference)' != ''"
+           Code="ARGUS0001"
+           Text="$(MSBuildProjectName) must have zero dependency PackageReference entries (architecture rule 2), but declares: @(_ArgusOffendingPackageReference, ', '). If this is an analyzer or build-only asset, add PrivateAssets=&quot;all&quot;. If it is a real dependency, it does not belong in this project." />
+  </Target>
+
+  <!--
+    Guard against rule 3 being violated by accident: nothing outside Argus.Graphics may
+    reference a Microsoft.Maui.* package, and Argus.Graphics may only reference
+    Microsoft.Maui.Graphics (never Microsoft.Maui.Controls, which drags in the whole
+    app model).
+  -->
+  <Target Name="ArgusGuardUiDependencies" BeforeTargets="CollectPackageReferences;Build">
+    <ItemGroup>
+      <_ArgusMauiReference Include="@(PackageReference)" Condition="$([System.String]::Copy('%(Identity)').StartsWith('Microsoft.Maui'))" />
+      <_ArgusForbiddenMauiReference Include="@(_ArgusMauiReference)" Condition="'%(Identity)' != 'Microsoft.Maui.Graphics'" />
+    </ItemGroup>
+    <Error Condition="'@(_ArgusMauiReference)' != '' and '$(MSBuildProjectName)' != 'Argus.Graphics' and '$(MSBuildProjectName)' != 'Argus.Graphics.Tests'"
+           Code="ARGUS0002"
+           Text="$(MSBuildProjectName) references @(_ArgusMauiReference, ', '). Colour and label presentation lives only in Argus.Graphics (architecture rule 3)." />
+    <Error Condition="'@(_ArgusForbiddenMauiReference)' != ''"
+           Code="ARGUS0003"
+           Text="$(MSBuildProjectName) references @(_ArgusForbiddenMauiReference, ', '). The only permitted MAUI dependency is Microsoft.Maui.Graphics, the standalone netstandard2.0 package (architecture rule 3)." />
+  </Target>
+
+</Project>

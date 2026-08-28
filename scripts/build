@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# build -- the whole repository, in the order that actually works.
+#
+# The order is not incidental. tests/Argus.Package.Tests and samples/ consume the packed
+# artifacts from ./artifacts/local-feed, so on a clean clone the feed has to exist before the
+# solution restores. Anyone running `dotnet build Argus.sln` first will get a restore failure
+# that looks like a broken repository and is not.
+
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+configuration="${1:-Release}"
+
+echo "== public hygiene =="
+scripts/check-public-hygiene
+
+echo ""
+echo "== pack (fills ./artifacts/local-feed) =="
+scripts/pack-local --configuration "$configuration" --clean
+
+echo ""
+echo "== build =="
+dotnet build Argus.sln --configuration "$configuration" --nologo
+
+echo ""
+echo "== test =="
+dotnet test Argus.sln --configuration "$configuration" --no-build --nologo
+
+echo ""
+echo "build: done."

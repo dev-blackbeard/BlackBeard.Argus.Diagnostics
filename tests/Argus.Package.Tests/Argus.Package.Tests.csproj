@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <RootNamespace>Argus.Package.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <!--
+    PACKAGE references, restored from ./artifacts/local-feed. This project is the last line of
+    defence on the public API surface: it consumes exactly what a stranger downloading the
+    package would consume, so a type left internal, a dependency that leaked into the nuspec,
+    or a target framework that does not resolve fails here rather than in somebody's build
+    three months from now.
+
+    Run scripts/pack-local before building this project.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Argus.Core" />
+    <PackageReference Include="Argus.Graphics" />
+    <PackageReference Include="Argus.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      The local feed's path, baked into the test assembly so the nuspec assertions can open the
+      packed artifacts without guessing where the repository root is.
+    -->
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>ArgusLocalFeed</_Parameter1>
+      <_Parameter2>$(ArgusLocalFeed)</_Parameter2>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>ArgusPackageVersion</_Parameter1>
+      <_Parameter2>$(ArgusPackageVersion)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+</Project>

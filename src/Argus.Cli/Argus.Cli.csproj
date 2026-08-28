@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Argus.Cli</RootNamespace>
+    <AssemblyName>argus</AssemblyName>
+    <!-- Not packed: this is a tool, and shipping it as a package is a separate decision. -->
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Argus.Core/Argus.Core.csproj" />
+  </ItemGroup>
+
+  <!--
+    No PackageReference. Argument parsing is hand-rolled and JSON comes from System.Text.Json
+    in the shared framework, so the tool adds nothing to the restore graph. That is worth more
+    here than the ergonomics of a command-line library: the whole repository restores from an
+    empty cache in one step.
+  -->
+
+</Project>

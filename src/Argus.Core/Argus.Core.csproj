@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>
+    <RootNamespace>Argus</RootNamespace>
+    <AssemblyName>Argus.Core</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <PackageId>Argus.Core</PackageId>
+    <Description>Stream diagnostics for geospatial entity feeds. Observes samples of position, attitude and velocity and emits structured, self-describing findings. Emits diagnostics only — no presentation, no dependencies.</Description>
+  </PropertyGroup>
+
+  <!--
+    Architecture rule 2. Setting this switches on ArgusGuardNoPackageDependencies in
+    Directory.Build.targets, which fails the build if a dependency PackageReference is
+    introduced here. Analyzer-only references (PrivateAssets="all") are permitted
+    because they contribute nothing to the produced package.
+  -->
+  <PropertyGroup>
+    <ArgusForbidPackageDependencies>true</ArgusForbidPackageDependencies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="PublicAPI.Shipped.txt" />
+    <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Argus.Graphics" />
+    <InternalsVisibleTo Include="Argus.Testing" />
+    <InternalsVisibleTo Include="Argus.Cli" />
+    <InternalsVisibleTo Include="Argus.Core.Tests" />
+    <InternalsVisibleTo Include="Argus.Graphics.Tests" />
+    <InternalsVisibleTo Include="Argus.Golden.Tests" />
+  </ItemGroup>
+
+</Project>

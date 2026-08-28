@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Argus.Sample</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <!--
+    PackageReference, deliberately, NOT ProjectReference.
+
+    A sample that references the projects proves the projects compile together. A sample that
+    references the packages proves the packages are usable, which is a different and much more
+    interesting claim: it catches a type that was accidentally left internal, a dependency that
+    leaked into the nuspec, a target framework that does not actually resolve. Run
+    scripts/pack-local before building this.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Argus.Core" />
+    <PackageReference Include="Argus.Graphics" />
+    <PackageReference Include="Argus.Testing" />
+  </ItemGroup>
+
+</Project>

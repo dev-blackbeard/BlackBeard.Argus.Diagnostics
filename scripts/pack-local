@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# pack-local -- pack the three shipping packages into ./artifacts/local-feed.
+#
+# samples/ and tests/Argus.Package.Tests consume the packages rather than the projects, so a
+# leaked type, a dependency that crept into the nuspec, or a target framework that does not
+# resolve fails inside this repository rather than in a consumer's build three months from
+# now. That only works if the feed is filled first, which is what this does.
+#
+# Build order on a clean clone:
+#
+#   scripts/pack-local
+#   dotnet test Argus.sln
+#
+# Usage: scripts/pack-local [--version <version>] [--configuration <Debug|Release>] [--clean]
+
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+version="${ARGUS_PACKAGE_VERSION:-0.1.0-local}"
+configuration="Release"
+clean=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --version)
+      version="${2:?--version requires a value}"
+      shift 2
+      ;;
+    --configuration|-c)
+      configuration="${2:?--configuration requires a value}"
+      shift 2
+      ;;
+    --clean)
+      clean=1
+      shift
+      ;;
+    -h|--help)
+      sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      exit 0
+      ;;
+    *)
+      echo "pack-local: unknown option '$1'" >&2
+      exit 2
+      ;;
+  esac
+done
+
+feed="$repo_root/artifacts/local-feed"
+mkdir -p "$feed"
+
+if [[ $clean -eq 1 ]]; then
+  # Stale artifacts are worse than none: NuGet resolves the highest version in the feed, so a
+  # package left over from an earlier version silently wins and the tests pass against code
+  # that no longer exists.
+  find "$feed" -maxdepth 1 -type f \( -name '*.nupkg' -o -name '*.snupkg' \) -delete
+fi
+
+packable=(
+  "src/Argus.Core/Argus.Core.csproj"
+  "src/Argus.Graphics/Argus.Graphics.csproj"
+  "src/Argus.Testing/Argus.Testing.csproj"
+)
+
+echo "pack-local: packing version $version ($configuration) into $feed"
+
+for project in "${packable[@]}"; do
+  echo ""
+  echo "  -> $project"
+  dotnet pack "$project" \
+    --configuration "$configuration" \
+    -p:ArgusPackageVersion="$version" \
+    -p:PackageOutputPath="$feed" \
+    --nologo
+done
+
+echo ""
+echo "pack-local: feed contents"
+ls -1 "$feed" | sed 's/^/  /'
+
+echo ""
+echo "pack-local: done. Consumers of the feed restore Argus.* at version $version;"
+echo "            set ArgusPackageVersion to match if you passed --version."
