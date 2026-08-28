@@ -109,11 +109,13 @@ public sealed class GroupOutlierDetector : IDetector
                     minimum));
         }
 
+        // context.PositionIsUsable, checked above, already proved both are non-null; the
+        // compiler cannot see that guarantee across the property access.
         double distance = Geo.DistanceMeters(
             centroidLatitude,
             centroidLongitude,
-            context.Sample.Latitude.Value,
-            context.Sample.Longitude.Value);
+            context.Sample.Latitude!.Value,
+            context.Sample.Longitude!.Value);
 
         if (!Geo.IsFinite(distance))
         {

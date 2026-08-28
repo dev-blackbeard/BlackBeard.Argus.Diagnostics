@@ -258,11 +258,13 @@ public sealed class EntityHealthMonitor : IEntityStreamMonitor
 
             if (previousValid != null && previousValid.Latitude.HasValue && previousValid.Longitude.HasValue)
             {
+                // sample's own non-null-ness comes from the positionIsUsable guard on the
+                // outer if, not from a check the compiler can see right here.
                 double distance = Geo.DistanceMeters(
                     previousValid.Latitude.Value,
                     previousValid.Longitude.Value,
-                    sample.Latitude.Value,
-                    sample.Longitude.Value);
+                    sample.Latitude!.Value,
+                    sample.Longitude!.Value);
 
                 if (Geo.IsFinite(distance))
                 {
@@ -279,8 +281,8 @@ public sealed class EntityHealthMonitor : IEntityStreamMonitor
 
             track.RecordPoint(new TrackPoint(
                 sample.ArrivalTimeUtc,
-                sample.Latitude.Value,
-                sample.Longitude.Value,
+                sample.Latitude!.Value,
+                sample.Longitude!.Value,
                 sample.Altitude));
 
             // The one rule that fixes the fabricated-jump defect: only a usable sample becomes

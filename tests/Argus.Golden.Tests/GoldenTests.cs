@@ -222,7 +222,7 @@ public sealed class GoldenTests
                 // Half a degree of latitude: tens of kilometres, so it trips the distance gate,
                 // the rate gate and the group radius at once.
                 EntitySample first = tick.Samples[0];
-                first.Latitude = first.Latitude.Value + 0.5;
+                first.Latitude = first.Latitude!.Value + 0.5;
             }
 
             GroupTickContext group = monitor.CreateTickContext(tick.Samples, tick.TimeUtc);

@@ -57,7 +57,7 @@ public sealed class AccessorTests
         });
 
         Assert.Equal("direct-1", snapshot.EntityId);
-        Assert.Equal(0.001, snapshot.Latitude.Value);
+        Assert.Equal(0.001, snapshot.Latitude!.Value);
     }
 
     [Fact]
@@ -75,9 +75,9 @@ public sealed class AccessorTests
         });
 
         Assert.Equal("42", snapshot.EntityId);
-        Assert.Equal(0.003, snapshot.Latitude.Value);
-        Assert.Equal(0.004, snapshot.Longitude.Value);
-        Assert.Equal(250.0, snapshot.Altitude.Value);
+        Assert.Equal(0.003, snapshot.Latitude!.Value);
+        Assert.Equal(0.004, snapshot.Longitude!.Value);
+        Assert.Equal(250.0, snapshot.Altitude!.Value);
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public sealed class AccessorTests
         EntitySnapshot snapshot = accessor(new OpaqueEntity { Tag = "t", Northing = 0.005, Easting = 0.006 });
 
         Assert.Equal("t", snapshot.EntityId);
-        Assert.Equal(0.005, snapshot.Latitude.Value);
+        Assert.Equal(0.005, snapshot.Latitude!.Value);
     }
 
     [Fact]
@@ -133,6 +133,6 @@ public sealed class AccessorTests
         Func<OpaqueEntity, EntitySnapshot> accessor = EntityAccessorFactory.Resolve<OpaqueEntity>(options);
         EntitySnapshot snapshot = accessor(new OpaqueEntity { Tag = "t", Northing = 0.007, Easting = 0.008 });
 
-        Assert.Equal(0.007, snapshot.Latitude.Value);
+        Assert.Equal(0.007, snapshot.Latitude!.Value);
     }
 }

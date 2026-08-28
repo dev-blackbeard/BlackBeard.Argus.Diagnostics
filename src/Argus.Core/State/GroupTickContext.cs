@@ -335,8 +335,11 @@ public sealed class GroupTickContextBuilder
             return false;
         }
 
-        double latitude = latitudeDegrees.Value;
-        double longitude = longitudeDegrees.Value;
+        // PositionValidity.IsUsable already proved both are non-null; the compiler cannot see
+        // that guarantee across the method call, so the null-forgiving operator is correct
+        // here rather than a defect to tidy away.
+        double latitude = latitudeDegrees!.Value;
+        double longitude = longitudeDegrees!.Value;
 
         var contribution = new GroupContribution(
             entityId,

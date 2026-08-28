@@ -104,8 +104,8 @@ public sealed class PrototypeDefectTests
         Assert.True(monitor.TryGetTrack("a", out track));
         Assert.NotNull(track);
 
-        Assert.Equal(0.0, track!.LastSeenSample!.Latitude.Value);
-        Assert.Equal(0.01, track.LastValidSample!.Latitude.Value);
+        Assert.Equal(0.0, track!.LastSeenSample!.Latitude!.Value);
+        Assert.Equal(0.01, track.LastValidSample!.Latitude!.Value);
     }
 
     // Defect 3: detection used if/else-if, so results were mutually exclusive and a jump

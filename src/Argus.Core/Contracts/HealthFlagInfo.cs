@@ -115,7 +115,11 @@ public static class HealthFlagInfo
     /// <returns>The definition, or a generic description if the flag is not a known single bit.</returns>
     public static string GetDefinition(HealthFlags flag)
     {
-        string definition;
+        // Declared nullable to match TryGetValue's [MaybeNullWhen(false)] out parameter under
+        // net8.0's annotated BCL; the true-branch below narrows it back to non-null.
+        // netstandard2.0's older, unannotated Dictionary<TKey,TValue> has no such contract, so
+        // this only matters on one leg of the multi-target -- but it has to compile on both.
+        string? definition;
         if (Definitions.TryGetValue(flag, out definition))
         {
             return definition;

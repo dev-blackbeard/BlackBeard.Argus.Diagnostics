@@ -63,7 +63,7 @@ public sealed class OutOfOrderSequenceDetector : IDetector
                 "no earlier sequence number has been seen for this entity");
         }
 
-        long sequence = context.Sample.SequenceNumber.Value;
+        long sequence = context.Sample.SequenceNumber!.Value;
         string measured = sequence.ToString(CultureInfo.InvariantCulture);
         string expected = "greater than " + highest.Value.ToString(CultureInfo.InvariantCulture);
 
