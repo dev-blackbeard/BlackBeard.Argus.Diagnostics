@@ -16,6 +16,22 @@
     <TargetFrameworks>net8.0-android</TargetFrameworks>
     <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net8.0-windows10.0.19041.0</TargetFrameworks>
     <UseMaui>true</UseMaui>
+
+    <!--
+      NETSDK1202 ("workload out of support"), suppressed rather than chased by TFM/SDK version:
+      pinning the SDK to 8.0.x instead (an earlier attempt, since reverted) broke analyzer loading
+      for every project in the repo: Microsoft.CodeAnalysis.PublicApiAnalyzers 4.14.0 needs a
+      newer Roslyn than an 8.0.x SDK bundles. The workload being out of support means Android
+      builds here stop receiving security updates, which is an acceptable, explicit trade-off for
+      a control library's Android target, not a reason to force an older SDK repo-wide.
+
+      This check is raised via an unconditional <Error> task in the SDK's own
+      Microsoft.NET.EolTargetFrameworks.targets, not a normal compiler warning, so NoWarn alone
+      cannot suppress it: CheckEolTargetFramework is the property that file itself gates the
+      check on. NoWarn is kept too in case a related diagnostic does go through the warning path.
+    -->
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <NoWarn>$(NoWarn);NETSDK1202</NoWarn>
     <SingleProject>false</SingleProject>
     <RootNamespace>Argus.Controls.Maui</RootNamespace>
     <AssemblyName>Argus.Controls.Maui</AssemblyName>
