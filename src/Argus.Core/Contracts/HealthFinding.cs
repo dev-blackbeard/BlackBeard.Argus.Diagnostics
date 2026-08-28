@@ -131,23 +131,31 @@ public sealed class HealthFinding
     }
 
     /// <summary>Renders the finding as a single self-describing line.</summary>
-    /// <returns>A line of the form <c>FLAG: measured X, expected Y — definition</c>.</returns>
+    /// <returns>A line of the form <c>FLAG (detector-id): measured X, expected Y — definition</c>.</returns>
+    /// <remarks>
+    /// Carries <see cref="DetectorId"/> as well as the flag: a reader pasted this line without
+    /// repository access still needs a way to point back at exactly which check produced it,
+    /// which the flag name alone does not give them once more than one detector can report the
+    /// same flag.
+    /// </remarks>
     public override string ToString()
     {
         if (Outcome == DetectorOutcome.NotEvaluable)
         {
             return string.Format(
                 CultureInfo.InvariantCulture,
-                "{0}: not evaluable ({1}) - {2}",
+                "{0} ({1}): not evaluable ({2}) - {3}",
                 FlagName,
+                DetectorId,
                 Reason ?? "reason not recorded",
                 Definition);
         }
 
         return string.Format(
             CultureInfo.InvariantCulture,
-            "{0}: measured {1}, expected {2} - {3}",
+            "{0} ({1}): measured {2}, expected {3} - {4}",
             FlagName,
+            DetectorId,
             Measured,
             Expected,
             Definition);
