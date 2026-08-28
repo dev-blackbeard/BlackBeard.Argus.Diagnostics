@@ -42,16 +42,24 @@ public sealed class EntityHealthMonitor : IEntityHealthMonitor
     {
     }
 
-    /// <summary>Creates a facade over a new monitor.</summary>
+    /// <summary>Creates a facade over a new monitor, with the default colour policy and subtitle formatter.</summary>
     /// <param name="options">
     /// How the monitor behaves. Register accessors for the application's entity types on
     /// <c>MonitorOptions.Accessors</c> here — that is the second of the three position
     /// resolution routes, and the one to use when the model types cannot reference Argus.
     /// </param>
-    /// <param name="colors">How reports become colours. A default policy is used when <c>null</c>.</param>
-    /// <param name="subtitles">How reports become subtitles. A default formatter is used when <c>null</c>.</param>
-    public EntityHealthMonitor(MonitorOptions options, ColorPolicy? colors = null, SubtitleFormatter? subtitles = null)
-        : this(new global::Argus.Pipeline.EntityHealthMonitor(options), colors, subtitles)
+    /// <remarks>
+    /// Takes no <c>colors</c>/<c>subtitles</c> overrides on purpose: architecture rule 8's
+    /// analyzer (RS0026) forbids more than one overload of the same constructor carrying
+    /// optional parameters, since which overload a caller resolves to can change silently as
+    /// overloads are added later.
+    /// <see cref="EntityHealthMonitor(IEntityStreamMonitor, ColorPolicy?, SubtitleFormatter?)"/>
+    /// is the one overload that keeps them; construct the underlying monitor yourself and use
+    /// that constructor if you need a custom policy or formatter together with
+    /// <see cref="MonitorOptions"/>.
+    /// </remarks>
+    public EntityHealthMonitor(MonitorOptions options)
+        : this(new global::Argus.Pipeline.EntityHealthMonitor(options), null, null)
     {
     }
 
