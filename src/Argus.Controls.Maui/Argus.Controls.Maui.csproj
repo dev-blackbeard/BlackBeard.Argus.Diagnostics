@@ -32,6 +32,16 @@
     -->
     <CheckEolTargetFramework>false</CheckEolTargetFramework>
     <NoWarn>$(NoWarn);NETSDK1202</NoWarn>
+
+    <!--
+      Without this, the WinUI XAML compiler (Microsoft.UI.Xaml.Markup.Compiler) treats this class
+      library like an app and fails compiling EntityHealthCollectionView.xaml (MSB3073,
+      XamlCompiler.exe exit code 1, no further detail surfaced in CI's log capture). Same property,
+      same reasoning as ArgusMonitorDemo.csproj's own: that one is an actual app and needs it for
+      a different reason (skipping MSIX Store packaging), but a class library needs it too, to
+      avoid the packaging-oriented XAML compilation path entirely.
+    -->
+    <WindowsPackageType Condition="$(TargetFramework.Contains('-windows'))">None</WindowsPackageType>
     <SingleProject>false</SingleProject>
     <RootNamespace>Argus.Controls.Maui</RootNamespace>
     <AssemblyName>Argus.Controls.Maui</AssemblyName>
