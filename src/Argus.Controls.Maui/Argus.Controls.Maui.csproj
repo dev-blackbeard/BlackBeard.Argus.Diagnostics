@@ -3,13 +3,13 @@
   <PropertyGroup>
     <!--
       v1 scope: Android and Windows only. iOS/MacCatalyst need a macOS build agent to compile at
-      all, and this repository's CI matrix (ubuntu-latest, windows-latest -- see ci.yml) has none.
+      all, and this repository's CI matrix (ubuntu-latest, windows-latest; see ci.yml) has none.
       Recorded as a CLAUDE.md backlog item rather than silently limited; adding a TFM to an
       already-multi-targeted library later is a small change, not a rearchitecture.
     -->
     <!--
       net8.0-windows10.0.19041.0 cannot restore or build at all on a non-Windows OS (no Windows
-      SDK reference assemblies), so it is only ever in the list when actually running on Windows --
+      SDK reference assemblies), so it is only ever in the list when actually running on Windows,
       matching how the standard MAUI project templates handle this, and how this repository's own
       CI matrix (ubuntu-latest, windows-latest) needs it split.
     -->
@@ -25,7 +25,7 @@
 
     <!--
       Inherited InvariantGlobalization=true from Directory.Build.props does not suit a UI control
-      library -- MAUI/platform culture-aware formatting expects it off. Overridden here, scoped to
+      library: MAUI/platform culture-aware formatting expects it off. Overridden here, scoped to
       this project only.
     -->
     <InvariantGlobalization>false</InvariantGlobalization>
@@ -44,7 +44,7 @@
     <!--
       Architecture rule 3, as amended: this is the one and only project in the repository
       permitted to reference Microsoft.Maui.Controls. ArgusGuardUiDependencies in
-      Directory.Build.targets enforces exactly that -- every other project, Argus.Graphics and
+      Directory.Build.targets enforces exactly that: every other project, Argus.Graphics and
       Argus.Controls included, fails the build the moment it references Microsoft.Maui.Controls
       or sets UseMaui.
     -->
