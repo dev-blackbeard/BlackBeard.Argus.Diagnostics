@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>Argus.Controls</RootNamespace>
+    <AssemblyName>Argus.Controls</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <PackageId>BlackBeard.Argus.Controls</PackageId>
+    <Description>Portable presentation state for Argus stream diagnostics: per-entity view-models, groupTag+id uniqueness, cumulative per-flag counts, and colour resolution. No UI framework dependency -- pair with BlackBeard.Argus.Controls.Maui for an actual control.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Argus.Core/Argus.Core.csproj" />
+    <ProjectReference Include="../Argus.Graphics/Argus.Graphics.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      No direct Microsoft.Maui.* PackageReference here -- Color comes in transitively through
+      Argus.Graphics. ArgusGuardUiDependencies in Directory.Build.targets scans this project's own
+      PackageReference items, not its transitive closure, so this project needs no exemption from
+      it and none is granted: it is not a place Microsoft.Maui.Controls may ever be referenced.
+    -->
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="PublicAPI.Shipped.txt" />
+    <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Argus.Controls.Tests" />
+  </ItemGroup>
+
+</Project>

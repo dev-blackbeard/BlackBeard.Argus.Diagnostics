@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView
+    x:Class="Argus.Controls.Maui.EntityHealthCollectionView"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Argus.Controls;assembly=Argus.Controls"
+    xmlns:local="clr-namespace:Argus.Controls.Maui"
+    x:Name="Root">
+
+    <ContentView.Resources>
+        <ResourceDictionary>
+            <local:StringNotNullOrEmptyConverter x:Key="StringNotNullOrEmptyConverter" />
+            <local:ExpanderLabelConverter x:Key="ExpanderLabelConverter" />
+            <local:FlagCountConverter x:Key="FlagCountConverter" />
+        </ResourceDictionary>
+    </ContentView.Resources>
+
+    <CollectionView x:Name="ItemsView" SelectionMode="None">
+        <CollectionView.ItemTemplate>
+            <DataTemplate x:DataType="controls:EntityHealthItemViewModel">
+                <Border Margin="4" Padding="10" StrokeThickness="1" BackgroundColor="{Binding Color}">
+                    <VerticalStackLayout Spacing="4">
+
+                        <HorizontalStackLayout Spacing="8">
+                            <Label Text="{Binding EntityId}" FontAttributes="Bold" />
+                            <Label Text="{Binding GroupTag}" IsVisible="{Binding GroupTag, Converter={StaticResource StringNotNullOrEmptyConverter}}" Opacity="0.7" />
+                        </HorizontalStackLayout>
+
+                        <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="12">
+                            <Label Grid.Column="0" Text="{Binding LatestSample.Latitude, StringFormat='lat {0:F5}'}" />
+                            <Label Grid.Column="1" Text="{Binding LatestSample.Longitude, StringFormat='lon {0:F5}'}" />
+                            <Label Grid.Column="2" Text="{Binding LatestSample.Altitude, StringFormat='alt {0:F1}m'}" />
+                        </Grid>
+
+                        <Button Text="{Binding IsExpanded, Converter={StaticResource ExpanderLabelConverter}}"
+                                Command="{Binding ToggleExpandedCommand}"
+                                FontSize="12" Padding="4" />
+
+                        <VerticalStackLayout Spacing="2" IsVisible="{Binding IsExpanded}">
+                            <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="12">
+                                <Label Grid.Column="0" Text="{Binding LatestSample.RollDegrees, StringFormat='roll {0:F1}°'}" />
+                                <Label Grid.Column="1" Text="{Binding LatestSample.PitchDegrees, StringFormat='pitch {0:F1}°'}" />
+                                <Label Grid.Column="2" Text="{Binding LatestSample.YawDegrees, StringFormat='yaw {0:F1}°'}" />
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="12">
+                                <Label Grid.Column="0" Text="{Binding LatestSample.VelocityNorthMetersPerSecond, StringFormat='vN {0:F1}'}" />
+                                <Label Grid.Column="1" Text="{Binding LatestSample.VelocityEastMetersPerSecond, StringFormat='vE {0:F1}'}" />
+                                <Label Grid.Column="2" Text="{Binding LatestSample.VelocityDownMetersPerSecond, StringFormat='vD {0:F1}'}" />
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="12">
+                                <Label Grid.Column="0" Text="{Binding LatestSample.AngularVelocityXDegreesPerSecond, StringFormat='wX {0:F1}'}" />
+                                <Label Grid.Column="1" Text="{Binding LatestSample.AngularVelocityYDegreesPerSecond, StringFormat='wY {0:F1}'}" />
+                                <Label Grid.Column="2" Text="{Binding LatestSample.AngularVelocityZDegreesPerSecond, StringFormat='wZ {0:F1}'}" />
+                            </Grid>
+                        </VerticalStackLayout>
+
+                        <FlexLayout BindableLayout.ItemsSource="{Binding FlagCounts}" Wrap="Wrap" Direction="Row">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Margin="2" Padding="6,2" StrokeThickness="0" BackgroundColor="#33000000">
+                                        <Label FontSize="11" Text="{Binding ., Converter={StaticResource FlagCountConverter}}" />
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </FlexLayout>
+
+                    </VerticalStackLayout>
+                </Border>
+            </DataTemplate>
+        </CollectionView.ItemTemplate>
+    </CollectionView>
+
+</ContentView>

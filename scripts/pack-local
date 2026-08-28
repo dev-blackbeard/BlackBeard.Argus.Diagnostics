@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pack-local -- pack the three shipping packages into ./artifacts/local-feed.
+# pack-local -- pack the shipping packages into ./artifacts/local-feed.
 #
 # samples/ and tests/Argus.Package.Tests consume the packages rather than the projects, so a
 # leaked type, a dependency that crept into the nuspec, or a target framework that does not
@@ -60,6 +60,8 @@ fi
 packable=(
   "src/Argus.Core/Argus.Core.csproj"
   "src/Argus.Graphics/Argus.Graphics.csproj"
+  "src/Argus.Controls/Argus.Controls.csproj"
+  "src/Argus.Controls.Maui/Argus.Controls.Maui.csproj"
   "src/Argus.Testing/Argus.Testing.csproj"
 )
 

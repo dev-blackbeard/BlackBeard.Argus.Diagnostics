@@ -33,22 +33,51 @@
   </Target>
 
   <!--
-    Guard against rule 3 being violated by accident: nothing outside Argus.Graphics may
-    reference a Microsoft.Maui.* package, and Argus.Graphics may only reference
-    Microsoft.Maui.Graphics (never Microsoft.Maui.Controls, which drags in the whole
-    app model).
+    Guard against rule 3 being violated by accident, as amended for Argus.Controls.Maui:
+
+      - Argus.Graphics / Argus.Graphics.Tests may reference Microsoft.Maui.Graphics, and nothing
+        else under Microsoft.Maui.*.
+      - Argus.Controls.Maui / Argus.Controls.Maui.Tests may reference Microsoft.Maui.Controls, and
+        nothing else under Microsoft.Maui.*.
+      - Every other project — Argus.Controls included — may reference no Microsoft.Maui.* package
+        at all. Argus.Controls gets Color transitively through its ProjectReference to
+        Argus.Graphics, which is not a PackageReference and so is invisible to this scan; that is
+        by design, not a gap it needs an exemption for.
+
+    Two projects, two disjoint allow-lists, checked below. Neither project's allow-list grants the
+    other's package.
   -->
+  <PropertyGroup>
+    <_ArgusGraphicsOnlyProject Condition="'$(MSBuildProjectName)' == 'Argus.Graphics' or '$(MSBuildProjectName)' == 'Argus.Graphics.Tests'">true</_ArgusGraphicsOnlyProject>
+    <_ArgusControlsMauiProject Condition="'$(MSBuildProjectName)' == 'Argus.Controls.Maui' or '$(MSBuildProjectName)' == 'Argus.Controls.Maui.Tests'">true</_ArgusControlsMauiProject>
+  </PropertyGroup>
+
   <Target Name="ArgusGuardUiDependencies" BeforeTargets="CollectPackageReferences;Build">
     <ItemGroup>
       <_ArgusMauiReference Include="@(PackageReference)" Condition="$([System.String]::Copy('%(Identity)').StartsWith('Microsoft.Maui'))" />
-      <_ArgusForbiddenMauiReference Include="@(_ArgusMauiReference)" Condition="'%(Identity)' != 'Microsoft.Maui.Graphics'" />
+      <_ArgusForbiddenGraphicsReference Include="@(_ArgusMauiReference)" Condition="'$(_ArgusGraphicsOnlyProject)' == 'true' and '%(Identity)' != 'Microsoft.Maui.Graphics'" />
+      <_ArgusForbiddenControlsMauiReference Include="@(_ArgusMauiReference)" Condition="'$(_ArgusControlsMauiProject)' == 'true' and '%(Identity)' != 'Microsoft.Maui.Controls'" />
     </ItemGroup>
-    <Error Condition="'@(_ArgusMauiReference)' != '' and '$(MSBuildProjectName)' != 'Argus.Graphics' and '$(MSBuildProjectName)' != 'Argus.Graphics.Tests'"
+
+    <Error Condition="'@(_ArgusMauiReference)' != '' and '$(_ArgusGraphicsOnlyProject)' != 'true' and '$(_ArgusControlsMauiProject)' != 'true'"
            Code="ARGUS0002"
-           Text="$(MSBuildProjectName) references @(_ArgusMauiReference, ', '). Colour and label presentation lives only in Argus.Graphics (architecture rule 3)." />
-    <Error Condition="'@(_ArgusForbiddenMauiReference)' != ''"
+           Text="$(MSBuildProjectName) references @(_ArgusMauiReference, ', '). Colour/label presentation lives only in Argus.Graphics, and the MAUI CollectionView control lives only in Argus.Controls.Maui (architecture rule 3)." />
+    <Error Condition="'@(_ArgusForbiddenGraphicsReference)' != ''"
            Code="ARGUS0003"
-           Text="$(MSBuildProjectName) references @(_ArgusForbiddenMauiReference, ', '). The only permitted MAUI dependency is Microsoft.Maui.Graphics, the standalone netstandard2.0 package (architecture rule 3)." />
+           Text="$(MSBuildProjectName) references @(_ArgusForbiddenGraphicsReference, ', '). The only permitted MAUI dependency here is Microsoft.Maui.Graphics, the standalone netstandard2.0 package (architecture rule 3)." />
+    <Error Condition="'@(_ArgusForbiddenControlsMauiReference)' != ''"
+           Code="ARGUS0004"
+           Text="$(MSBuildProjectName) references @(_ArgusForbiddenControlsMauiReference, ', '). The only permitted MAUI dependency here is Microsoft.Maui.Controls (architecture rule 3)." />
+
+    <!--
+      Belt-and-suspenders: UseMaui=true is how a MAUI class library actually pulls in
+      Microsoft.Maui.Controls, and it is not certain that always shows up as an explicit
+      PackageReference item the scan above would see (workload-provided framework references may
+      not). Keyed on the property itself so the rule holds either way.
+    -->
+    <Error Condition="'$(UseMaui)' == 'true' and '$(_ArgusControlsMauiProject)' != 'true'"
+           Code="ARGUS0005"
+           Text="$(MSBuildProjectName) sets UseMaui=true. Only Argus.Controls.Maui may (architecture rule 3)." />
   </Target>
 
 </Project>

@@ -1,0 +1,66 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      v1 scope: Android and Windows only. iOS/MacCatalyst need a macOS build agent to compile at
+      all, and this repository's CI matrix (ubuntu-latest, windows-latest -- see ci.yml) has none.
+      Recorded as a CLAUDE.md backlog item rather than silently limited; adding a TFM to an
+      already-multi-targeted library later is a small change, not a rearchitecture.
+    -->
+    <!--
+      net8.0-windows10.0.19041.0 cannot restore or build at all on a non-Windows OS (no Windows
+      SDK reference assemblies), so it is only ever in the list when actually running on Windows --
+      matching how the standard MAUI project templates handle this, and how this repository's own
+      CI matrix (ubuntu-latest, windows-latest) needs it split.
+    -->
+    <TargetFrameworks>net8.0-android</TargetFrameworks>
+    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net8.0-windows10.0.19041.0</TargetFrameworks>
+    <UseMaui>true</UseMaui>
+    <SingleProject>false</SingleProject>
+    <RootNamespace>Argus.Controls.Maui</RootNamespace>
+    <AssemblyName>Argus.Controls.Maui</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <PackageId>BlackBeard.Argus.Controls.Maui</PackageId>
+    <Description>A .NET MAUI CollectionView-based control that visualises IEntityStreamMonitor output: 6DOF, per-entity anomaly counts, severity colour and flash. Pair with BlackBeard.Argus.Controls (portable, no MAUI Controls dependency) for the underlying view-model.</Description>
+
+    <!--
+      Inherited InvariantGlobalization=true from Directory.Build.props does not suit a UI control
+      library -- MAUI/platform culture-aware formatting expects it off. Overridden here, scoped to
+      this project only.
+    -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+
+    <!-- Windows-only TFM needs this even in a class library, same as an app project would set it. -->
+    <SupportedOSPlatformVersion Condition="$(TargetFramework.Contains('-windows'))">10.0.17763.0</SupportedOSPlatformVersion>
+    <TargetPlatformMinVersion Condition="$(TargetFramework.Contains('-windows'))">10.0.17763.0</TargetPlatformMinVersion>
+    <SupportedOSPlatformVersion Condition="$(TargetFramework.Contains('-android'))">21.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Argus.Controls/Argus.Controls.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Architecture rule 3, as amended: this is the one and only project in the repository
+      permitted to reference Microsoft.Maui.Controls. ArgusGuardUiDependencies in
+      Directory.Build.targets enforces exactly that -- every other project, Argus.Graphics and
+      Argus.Controls included, fails the build the moment it references Microsoft.Maui.Controls
+      or sets UseMaui.
+    -->
+    <PackageReference Include="Microsoft.Maui.Controls" />
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <MauiXaml Update="EntityHealthCollectionView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </MauiXaml>
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="PublicAPI.Shipped.txt" />
+    <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
+  </ItemGroup>
+
+</Project>

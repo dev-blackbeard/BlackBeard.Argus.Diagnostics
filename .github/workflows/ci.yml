@@ -45,6 +45,13 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      # Argus.Controls.Maui always targets net8.0-android (both OSes) and additionally
+      # net8.0-windows10.0.19041.0 on Windows only -- see its .csproj. iOS/MacCatalyst are not
+      # installed here: this matrix has no macOS runner, so neither TFM can build at all (tracked
+      # in CLAUDE.md's backlog).
+      - name: Install the MAUI workload
+        run: dotnet workload install maui-android ${{ runner.os == 'Windows' && 'maui-windows' || '' }}
+
       - name: Restore tool dependencies
         run: dotnet restore src/Argus.Core/Argus.Core.csproj
 
@@ -71,7 +78,12 @@ jobs:
 
   packages:
     name: package artifacts
-    runs-on: ubuntu-latest
+    # windows-latest, not ubuntu-latest: Argus.Controls.Maui targets net8.0-android everywhere
+    # plus net8.0-windows10.0.19041.0 on Windows only, and a single pack has to see every TFM it
+    # is packing at once to produce one nupkg containing both -- Windows is the one runner that
+    # can resolve both simultaneously. Packing from ubuntu-latest would silently produce a package
+    # missing the Windows lib folder.
+    runs-on: windows-latest
     needs: [hygiene, build]
     steps:
       - uses: actions/checkout@v4
@@ -79,6 +91,9 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+
+      - name: Install the MAUI workload
+        run: dotnet workload install maui-android maui-windows
 
       - name: Pack
         shell: bash

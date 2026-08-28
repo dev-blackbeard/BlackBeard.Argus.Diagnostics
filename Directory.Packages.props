@@ -20,6 +20,13 @@
 
     <!-- Rule 3. The standalone netstandard2.0 graphics primitives, NOT Microsoft.Maui.Controls. -->
     <PackageVersion Include="Microsoft.Maui.Graphics" Version="8.0.100" />
+
+    <!--
+      Rule 3, as amended: the one dependency Argus.Controls.Maui is permitted to carry, and the
+      one project ArgusGuardUiDependencies (Directory.Build.targets) permits it in. Same MAUI
+      release train as Microsoft.Maui.Graphics above, so the two stay in lockstep.
+    -->
+    <PackageVersion Include="Microsoft.Maui.Controls" Version="8.0.100" />
   </ItemGroup>
 
   <ItemGroup Label="Test">

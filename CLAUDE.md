@@ -28,6 +28,14 @@ This repository is **public**. Everything below is a hard constraint, not a pref
       to equal exactly the set of unimplemented detectors, so implementing one
       forces the golden case to move.
 - [ ] Decide whether `Argus.Cli` ships as a `dotnet tool`.
+- [ ] Add `net8.0-ios`/`net8.0-maccatalyst` to `Argus.Controls.Maui` once a macOS
+      build agent is available. CI (`ubuntu-latest`/`windows-latest`) cannot build
+      either TFM today — there is no Windows or Linux path to the iOS/MacCatalyst SDKs.
+- [ ] Verify, against a real MAUI-workload build, whether `UseMaui=true` actually
+      produces an explicit `Microsoft.Maui.Controls` `PackageReference` item or pulls
+      it in via the workload's own framework references. `ArgusGuardUiDependencies`
+      is written to catch either case (it also keys off the `UseMaui` property
+      itself), but this was authored without a working MAUI SDK to confirm against.
 
 ---
 
@@ -89,9 +97,23 @@ make this repository un-buildable on its own for anyone who clones only this hal
    permitted because they contribute nothing to the produced `.nupkg`; the guard
    enforces exactly that distinction, and `Argus.Package.Tests` re-checks it against
    the packed artifact.
-3. Colour and label presentation lives **only** in `Argus.Graphics`, whose sole
-   external dependency is `Microsoft.Maui.Graphics` — the standalone netstandard2.0
-   package, **not** `Microsoft.Maui.Controls`.
+3. Colour/label presentation and interactive UI are two different tiers, each with
+   exactly one place it may live:
+   - `Argus.Graphics` — passive colour/label primitives. Its sole external dependency
+     is `Microsoft.Maui.Graphics`, the standalone netstandard2.0 package, **never**
+     `Microsoft.Maui.Controls`.
+   - `Argus.Controls` — portable per-entity view-model/aggregation state (uniqueness
+     keying, cumulative per-flag counts, colour resolution) for a UI to bind to. Zero
+     `Microsoft.Maui.Controls` dependency; it reaches `Color`/`ColorPolicy` only
+     transitively, through a `ProjectReference` to `Argus.Graphics`.
+   - `Argus.Controls.Maui` — the **one and only** project in this repository
+     permitted to reference `Microsoft.Maui.Controls`. A thin MAUI `CollectionView`
+     shell over `Argus.Controls`; it contains no diagnostics logic of its own.
+   `ArgusGuardUiDependencies` in `Directory.Build.targets` enforces all three
+   boundaries — including a check keyed on the `UseMaui` MSBuild property itself, not
+   only on `PackageReference` items, since it isn't certain that property always
+   produces one. Every other project, `Argus.Core` included, fails the build the
+   moment it references either MAUI package or sets `UseMaui`.
 4. `HealthFlags` is a `[Flags]` enum. Conditions are **not** mutually exclusive: an
    entity can be a group outlier *and* carry a non-normalised quaternion. Presentation
    picks a colour by severity precedence; **detection never suppresses**. No
@@ -106,7 +128,11 @@ make this repository un-buildable on its own for anyone who clones only this hal
 8. Public API surface is locked with `Microsoft.CodeAnalysis.PublicApiAnalyzers`, so
    "we'll revisit the interface later" is a deliberate act, not drift.
 9. `Argus.Core` and `Argus.Testing` multi-target `netstandard2.0;net8.0`.
-   `Argus.Graphics` targets `netstandard2.0`.
+   `Argus.Graphics` and `Argus.Controls` target `netstandard2.0`. `Argus.Controls.Maui`
+   is the one exception: `net8.0-android` and (Windows builds only)
+   `net8.0-windows10.0.19041.0`, because `Microsoft.Maui.Controls` cannot target
+   netstandard2.0 at all. `net8.0-ios`/`net8.0-maccatalyst` are not yet built — this
+   repository's CI has no macOS runner (see backlog).
 10. Deterministic builds, SourceLink, symbol packages, central package management.
 
 ### netstandard2.0 consequences
@@ -180,11 +206,13 @@ Each has a named regression test. Do not regress them.
 ## 5. Layout
 
 ```
-src/Argus.Core      packed, zero dependencies, netstandard2.0;net8.0
-src/Argus.Graphics  packed, Core + Microsoft.Maui.Graphics, netstandard2.0
-src/Argus.Testing   packed, corruption-injection harness, netstandard2.0;net8.0
-src/Argus.Cli       not packed, replays a capture to JSONL/CSV findings
-samples/            PackageReference, never ProjectReference
+src/Argus.Core         packed, zero dependencies, netstandard2.0;net8.0
+src/Argus.Graphics     packed, Core + Microsoft.Maui.Graphics, netstandard2.0
+src/Argus.Controls     packed, Core + Graphics, netstandard2.0, no Microsoft.Maui.Controls
+src/Argus.Controls.Maui packed, Controls + Microsoft.Maui.Controls, net8.0-android;net8.0-windows10.0.19041.0
+src/Argus.Testing      packed, corruption-injection harness, netstandard2.0;net8.0
+src/Argus.Cli          not packed, replays a capture to JSONL/CSV findings
+samples/               PackageReference, never ProjectReference
 tests/Argus.Package.Tests  PACKAGE reference from ./artifacts/local-feed
 ```
 
