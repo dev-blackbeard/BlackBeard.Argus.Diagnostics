@@ -1,0 +1,74 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{json,yml,yaml,md}]
+indent_size = 2
+
+[*.{csproj,props,targets,config,slnx}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.sh]
+indent_size = 2
+
+[*.cs]
+# --- language conventions -------------------------------------------------
+csharp_using_directive_placement = outside_namespace:warning
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_prefer_braces = true:warning
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_expression_bodied_methods = when_on_single_line:silent
+csharp_style_prefer_pattern_matching = true:suggestion
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+dotnet_style_readonly_field = true:warning
+dotnet_style_require_accessibility_modifiers = for_non_interface_members:warning
+
+# --- naming ---------------------------------------------------------------
+dotnet_naming_rule.private_fields_underscore.severity = warning
+dotnet_naming_rule.private_fields_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore.style = underscore_camel
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+dotnet_naming_style.underscore_camel.required_prefix = _
+dotnet_naming_style.underscore_camel.capitalization = camel_case
+
+# --- analyzer severities --------------------------------------------------
+# Public API surface is locked (architecture rule 8). These are the diagnostics that
+# make an unrecorded public API change fail the build. They are currently suppressed
+# via <NoWarn> in Directory.Build.props until the baseline is populated once against a
+# real SDK; see the backlog item in CLAUDE.md.
+dotnet_diagnostic.RS0016.severity = error
+dotnet_diagnostic.RS0017.severity = error
+dotnet_diagnostic.RS0022.severity = error
+dotnet_diagnostic.RS0025.severity = error
+dotnet_diagnostic.RS0026.severity = error
+dotnet_diagnostic.RS0027.severity = error
+dotnet_diagnostic.RS0037.severity = error
+
+# Public types must be documented — findings are only self-describing (rule 7) if the
+# contracts that carry them say what they mean.
+dotnet_diagnostic.CS1591.severity = error
+
+# Detector and threshold names are deliberately long and explicit; do not shorten.
+dotnet_diagnostic.CA1707.severity = none
+# The library targets netstandard2.0, where several "use the newer overload" analyzers
+# suggest APIs that do not exist there.
+dotnet_diagnostic.CA1310.severity = none
+dotnet_diagnostic.CA1062.severity = none
+
+[tests/**/*.cs]
+dotnet_diagnostic.CS1591.severity = none
+csharp_style_namespace_declarations = file_scoped:silent
+
+[samples/**/*.cs]
+dotnet_diagnostic.CS1591.severity = none

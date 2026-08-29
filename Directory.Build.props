@@ -1,0 +1,108 @@
+<Project>
+
+  <!-- Repository-wide build settings. Keep this file free of anything domain specific. -->
+
+  <PropertyGroup>
+    <ArgusRepoRoot>$(MSBuildThisFileDirectory)</ArgusRepoRoot>
+    <ArgusLocalFeed>$(ArgusRepoRoot)artifacts/local-feed</ArgusLocalFeed>
+    <ArtifactsPath>$(ArgusRepoRoot)artifacts</ArtifactsPath>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NeutralLanguage>en</NeutralLanguage>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <!--
+    BOOTSTRAP ONLY. RS0016/RS0017/RS0037 are the PublicApiAnalyzers diagnostics that
+    fire while PublicAPI.Unshipped.txt is still empty. Populating that baseline needs
+    one successful build with the analyzer's code fix applied. Until that has happened
+    the analyzer would fail every build, so the three are suppressed here and the
+    un-suppression is the second item in CLAUDE.md's backlog. Architecture rule 8 is
+    only actually load-bearing once this NoWarn is gone.
+  -->
+  <PropertyGroup>
+    <NoWarn>$(NoWarn);RS0016;RS0017;RS0037</NoWarn>
+  </PropertyGroup>
+
+  <!--
+    Warnings are errors, which means the design-rule analyzers that argue with the shape of
+    a configuration object have to be answered rather than ignored. These are answered here,
+    once, with the reason:
+
+      CA1002  "do not expose List<T>"        - options objects expose collections callers configure.
+      CA1051  "do not declare visible fields" - none are declared; kept off so a future public
+                                                readonly constant does not have to be a property.
+      CA1819  "properties should not return arrays"
+      CA2227  "collection properties should be read only"
+                                              - DetectorThresholds and MonitorOptions are bound
+                                                from configuration files, which needs settable
+                                                collection properties.
+      CA1024  "use properties where appropriate"
+      CA1716  "identifiers should not match keywords"
+      CA1305  "specify IFormatProvider"      - every format call in this repository already
+                                                passes CultureInfo.InvariantCulture; the rule
+                                                still fires on ToString() of enums and strings.
+      CA1310  "specify StringComparison"     - the netstandard2.0 overloads it suggests do not
+                                                all exist there.
+      CA1062  "validate arguments"           - the public entry points validate; the analyzer
+                                                cannot see through the helpers that do it.
+  -->
+  <PropertyGroup>
+    <NoWarn>$(NoWarn);CA1002;CA1051;CA1819;CA2227;CA1024;CA1716;CA1305;CA1310;CA1062</NoWarn>
+  </PropertyGroup>
+
+  <!-- Rule 10: deterministic builds, SourceLink, symbol packages. -->
+  <PropertyGroup>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true' or '$(TF_BUILD)' == 'true' or '$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <!--
+      SourceLink for GitHub ships inside the .NET 8+ SDK, so rule 10 is satisfied
+      without a PackageReference. That matters: rule 2 forbids dependency package
+      references in Argus.Core, and Microsoft.SourceLink.GitHub used to be one.
+    -->
+  </PropertyGroup>
+
+  <!-- Package metadata shared by every packable project. Domain-neutral by construction. -->
+  <PropertyGroup>
+    <ArgusPackageVersion Condition="'$(ArgusPackageVersion)' == ''">0.1.0-local</ArgusPackageVersion>
+    <Version>$(ArgusPackageVersion)</Version>
+    <Authors>Argus contributors</Authors>
+    <Product>Argus</Product>
+    <Company></Company>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>diagnostics;geospatial;telemetry;stream;validation</PackageTags>
+    <Copyright>Copyright the Argus contributors</Copyright>
+    <RepositoryType>git</RepositoryType>
+    <PackageOutputPath>$(ArgusLocalFeed)</PackageOutputPath>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <IsTestProject Condition="'$(IsTestProject)' == '' and $(MSBuildProjectName.EndsWith('.Tests'))">true</IsTestProject>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- xunit's analyzers are advisory in test projects; CA1707 fights descriptive test names. -->
+    <NoWarn>$(NoWarn);CA1707;CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <None Include="$(ArgusRepoRoot)README.md" Pack="true" PackagePath="\" Visible="false" />
+  </ItemGroup>
+
+</Project>

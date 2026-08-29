@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      Architecture rule 9: netstandard2.0 only. The presentation layer has to be consumable
+      from whatever the application happens to be built on, and netstandard2.0 is the widest
+      surface that still reaches .NET Framework hosts.
+    -->
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>Argus.Graphics</RootNamespace>
+    <AssemblyName>Argus.Graphics</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <PackageId>BlackBeard.Argus.Graphics</PackageId>
+    <Description>Presentation for Argus stream diagnostics: severity-ordered colours, debug subtitles, and a compatibility facade for callers migrating from a colour-returning API. Depends on Microsoft.Maui.Graphics only.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Argus.Core/Argus.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Architecture rule 3: the standalone netstandard2.0 graphics primitives package. NOT
+      Microsoft.Maui.Controls, which would drag the entire application model into anything
+      that wants a colour. ArgusGuardUiDependencies in Directory.Build.targets enforces this.
+    -->
+    <PackageReference Include="Microsoft.Maui.Graphics" />
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="PublicAPI.Shipped.txt" />
+    <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Argus.Graphics.Tests" />
+  </ItemGroup>
+
+</Project>

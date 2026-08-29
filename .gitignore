@@ -1,0 +1,33 @@
+# Build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+*.userprefs
+
+# Local package feed. The directory is tracked (scripts/pack-local writes into it and
+# nuget.config points at it); its contents never are.
+artifacts/*
+!artifacts/local-feed/
+artifacts/local-feed/*
+!artifacts/local-feed/.gitkeep
+
+# Test output
+TestResults/
+*.trx
+coverage*.xml
+*.coverage
+
+# Tooling
+.vs/
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# NuGet
+*.nupkg
+*.snupkg
+project.lock.json

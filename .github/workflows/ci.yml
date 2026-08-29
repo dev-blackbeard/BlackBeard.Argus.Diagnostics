@@ -1,0 +1,103 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  hygiene:
+    # First, and separately, so a leak fails before anything is built, published or cached.
+    # This repository is public; the cost of an accidental disclosure is not symmetric with the
+    # cost of a red build.
+    name: public hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for domain specifics
+        run: scripts/check-public-hygiene
+        # ARGUS_EXTRA_DENYLIST is deliberately unset here. The list of employer, team, project
+        # and protocol names is itself sensitive and lives in the private repository; it is
+        # supplied by the private repository's own pipeline, which checks this tree out and
+        # runs the same script with the variable set.
+
+  build:
+    name: build and test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # Argus.Controls.Maui targets net8.0-android only for now -- Windows was attempted and
+      # reverted (WinUI XamlCompiler.exe fails opaquely; see CLAUDE.md's backlog and
+      # BlackBeard.Playbook's idiosyncrasies journal), and iOS/MacCatalyst need a macOS runner
+      # this matrix doesn't have. android-only still needs the workload on both OSes.
+      - name: Install the MAUI workload
+        run: dotnet workload install maui-android
+
+      - name: Restore tool dependencies
+        run: dotnet restore src/Argus.Core/Argus.Core.csproj
+
+      # The feed has to exist before the solution restores: samples/ and
+      # tests/Argus.Package.Tests consume the packages rather than the projects, so that a
+      # leaked type or a stray dependency fails here rather than in a consumer's build.
+      - name: Pack into the local feed
+        shell: bash
+        run: scripts/pack-local --configuration Release --clean
+
+      - name: Build
+        run: dotnet build Argus.sln --configuration Release
+
+      - name: Test
+        run: dotnet test Argus.sln --configuration Release --no-build --logger "trx;LogFileName=results.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}
+          path: '**/TestResults/*.trx'
+          if-no-files-found: ignore
+
+  packages:
+    name: package artifacts
+    runs-on: ubuntu-latest
+    needs: [hygiene, build]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install the MAUI workload
+        run: dotnet workload install maui-android
+
+      - name: Pack
+        shell: bash
+        run: scripts/pack-local --configuration Release --clean
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: |
+            artifacts/local-feed/*.nupkg
+            artifacts/local-feed/*.snupkg

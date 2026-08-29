@@ -1,0 +1,251 @@
+#!/usr/bin/env bash
+# check-public-hygiene -- fail loudly if anything domain-specific has reached the public repo.
+#
+# This repository is public. Argus is a diagnostic library for geospatial entity streams and
+# it has no idea what the entities are -- that is simultaneously the discretion story and the
+# reason the library is reusable. This script is the automated half of keeping it that way.
+#
+# It checks for:
+#
+#   1. Force-disposition and defence vocabulary.
+#   2. Coordinate-shaped literals: anything with four or more decimal places is either a real
+#      position or a constant that should be derived rather than pasted.
+#   3. Terms supplied from a private extra denylist (see ARGUS_EXTRA_DENYLIST below).
+#
+# It also WARNS, without failing, about three words the architecture requires in neutral
+# senses: "track" (EntityTrack/TrackStore, the per-entity state record), "formation" (only in
+# FormationCollapse, meaning the group's geometric arrangement) and "contact". A grep cannot
+# tell a neutral use from a tactical one, and failing on them would mean either renaming the
+# core state type or turning the check off -- both worse than a human reading a short list.
+#
+# ARGUS_EXTRA_DENYLIST
+#   Path to a newline-separated file of additional terms -- employer names, team names,
+#   project and protocol codenames. That list is itself sensitive, so it lives in the private
+#   repository and is passed in at CI time. It is never committed here.
+#
+#   ARGUS_EXTRA_DENYLIST=/path/to/private/config/hygiene-denylist.txt scripts/check-public-hygiene
+#
+# Exemptions
+#   - This script and CLAUDE.md, which have to name the banned words to state the policy.
+#   - Any single line carrying the marker: hygiene-allow
+#
+# Exit codes: 0 clean, 1 violations found, 2 usage error.
+
+set -uo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root" || exit 2
+
+violations=0
+warnings=0
+
+# --- what counts as a violation -----------------------------------------------------------
+
+# Unambiguous force-disposition and defence vocabulary. Word-boundary matched, case-insensitive.
+vocabulary=(
+  'blue *forces?'
+  'red *forces?'
+  'blueforce'
+  'redforce'
+  'hostiles?'
+  'friendlies'
+  'friendly *forces?'
+  'threats?'
+  'targets? *of *interest'
+  'call *signs?'
+  'callsigns?'
+  'tail *numbers?'
+  'ordnance'
+  'weapons?'
+  'munitions?'
+  'sorties?'
+  'squadrons?'
+  'platoons?'
+  'battalions?'
+  'regiments?'
+  'brigades?'
+  'convoys?'
+  'patrols?'
+  'tactical'
+  'battlefields?'
+  'theatre *of *operations'
+  'rules? *of *engagement'
+  'classified'
+  'secret'
+  'restricted *distribution'
+)
+
+# Words the architecture needs in neutral senses. Reported for a human to read, never fatal.
+review_vocabulary=(
+  'tracks?'
+  'formations?'
+  'contacts?'
+)
+
+# Constants that legitimately carry many decimal places. Everything else that looks like a
+# coordinate is a finding.
+coordinate_allowlist=(
+  '298.257223563'          # WGS84 inverse flattening -- a shape, not a place
+  '0.0033528106647474805'  # WGS84 flattening
+  '3.141592653589793'
+  '1.5707963267948966'
+  '2.718281828459045'
+)
+
+# Files that have to name the banned words in order to state the policy.
+exempt_files=(
+  'scripts/check-public-hygiene'
+  'CLAUDE.md'
+)
+
+# --- collect the files to scan --------------------------------------------------------------
+
+files=()
+if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  mapfile -t files < <(git ls-files 2>/dev/null)
+fi
+
+# Falls back to the filesystem when git has nothing to say -- a fresh clone before the first
+# commit, an export, or a CI job that checked out without history. A hygiene check that
+# silently scans zero files is worse than no hygiene check.
+if [[ ${#files[@]} -eq 0 ]]; then
+  mapfile -t files < <(find . -type f \
+    -not -path './.git/*' \
+    -not -path './artifacts/*' \
+    -not -path '*/bin/*' \
+    -not -path '*/obj/*' \
+    | sed 's|^\./||')
+fi
+
+is_exempt() {
+  local candidate="$1"
+  local exempt
+  for exempt in "${exempt_files[@]}"; do
+    [[ "$candidate" == "$exempt" ]] && return 0
+  done
+  case "$candidate" in
+    artifacts/*|*/bin/*|*/obj/*|*.nupkg|*.snupkg|*.dll|*.pdb|*.png|*.jpg|*.gif|*.ico) return 0 ;;
+  esac
+  return 1
+}
+
+scan_files=()
+for file in "${files[@]}"; do
+  [[ -f "$file" ]] || continue
+  is_exempt "$file" && continue
+  scan_files+=("$file")
+done
+
+if [[ ${#scan_files[@]} -eq 0 ]]; then
+  echo "check-public-hygiene: nothing to scan." >&2
+  exit 0
+fi
+
+# --- helpers ---------------------------------------------------------------------------------
+
+# Drops any hit on a line carrying the exemption marker.
+strip_allowed() {
+  grep -v 'hygiene-allow' || true
+}
+
+report() {
+  local severity="$1"
+  local title="$2"
+  local body="$3"
+
+  [[ -z "$body" ]] && return 0
+
+  echo ""
+  echo "  [$severity] $title"
+  echo "$body" | sed 's/^/    /'
+}
+
+# --- 1. vocabulary ---------------------------------------------------------------------------
+
+for pattern in "${vocabulary[@]}"; do
+  hits="$(grep -rIniE "\\b${pattern}\\b" "${scan_files[@]}" 2>/dev/null | strip_allowed)"
+  if [[ -n "$hits" ]]; then
+    report FAIL "domain vocabulary: /${pattern}/" "$hits"
+    violations=$((violations + 1))
+  fi
+done
+
+# --- 2. coordinate-shaped literals -------------------------------------------------------------
+
+allow_expr=""
+for allowed in "${coordinate_allowlist[@]}"; do
+  if [[ -z "$allow_expr" ]]; then
+    allow_expr="$allowed"
+  else
+    allow_expr="$allow_expr|$allowed"
+  fi
+done
+
+coordinate_hits="$(grep -rInE '(^|[^0-9.])-?[0-9]{1,3}\.[0-9]{4,}' "${scan_files[@]}" 2>/dev/null \
+  | strip_allowed \
+  | grep -vE "$allow_expr" || true)"
+
+if [[ -n "$coordinate_hits" ]]; then
+  report FAIL "coordinate-shaped literal (4+ decimal places)" "$coordinate_hits"
+  echo "    A real position, or a constant that should be derived rather than pasted." >&2
+  echo "    Samples and tests use the synthetic origin (0.0, 0.0) and metric offsets from it." >&2
+  violations=$((violations + 1))
+fi
+
+# --- 3. the private extra denylist --------------------------------------------------------------
+
+if [[ -n "${ARGUS_EXTRA_DENYLIST:-}" ]]; then
+  if [[ ! -f "$ARGUS_EXTRA_DENYLIST" ]]; then
+    echo "check-public-hygiene: ARGUS_EXTRA_DENYLIST points at a file that does not exist:" >&2
+    echo "  $ARGUS_EXTRA_DENYLIST" >&2
+    exit 2
+  fi
+
+  while IFS= read -r term || [[ -n "$term" ]]; do
+    term="${term%%#*}"
+    term="$(echo "$term" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    [[ -z "$term" ]] && continue
+
+    hits="$(grep -rIniF -- "$term" "${scan_files[@]}" 2>/dev/null | strip_allowed)"
+    if [[ -n "$hits" ]]; then
+      # The term itself is private, so it is not echoed into the log.
+      report FAIL "private denylist term (redacted)" "$hits"
+      violations=$((violations + 1))
+    fi
+  done < "$ARGUS_EXTRA_DENYLIST"
+else
+  echo "check-public-hygiene: ARGUS_EXTRA_DENYLIST is not set; skipping the private term check."
+  echo "  The list of employer, team, project and protocol names lives in the private"
+  echo "  repository. Set ARGUS_EXTRA_DENYLIST to check against it."
+fi
+
+# --- warnings ----------------------------------------------------------------------------------
+
+for pattern in "${review_vocabulary[@]}"; do
+  hits="$(grep -rIniE "\\b${pattern}\\b" "${scan_files[@]}" 2>/dev/null | strip_allowed | head -n 20)"
+  if [[ -n "$hits" ]]; then
+    count="$(grep -rInciE "\\b${pattern}\\b" "${scan_files[@]}" 2>/dev/null | awk -F: '{ total += $NF } END { print total + 0 }')"
+    report WARN "needs human judgement: /${pattern}/ (${count} occurrences, first 20 shown)" "$hits"
+    warnings=$((warnings + 1))
+  fi
+done
+
+# --- verdict -------------------------------------------------------------------------------------
+
+echo ""
+if [[ $violations -gt 0 ]]; then
+  echo "check-public-hygiene: FAILED with $violations violation category/categories."
+  echo ""
+  echo "Nothing domain-specific may enter this repository -- not in code, comments, test"
+  echo "fixtures, docs, sample data or file names. If the thing you are adding needs a real"
+  echo "value, the value belongs in the private repository and the public side takes it as an"
+  echo "input. Moving code outward later is trivial; unpublishing is not."
+  exit 1
+fi
+
+if [[ $warnings -gt 0 ]]; then
+  echo "check-public-hygiene: passed, with $warnings term(s) flagged for human review above."
+else
+  echo "check-public-hygiene: passed."
+fi
+exit 0

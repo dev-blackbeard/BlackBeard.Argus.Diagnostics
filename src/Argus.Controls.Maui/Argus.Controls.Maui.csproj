@@ -1,0 +1,79 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      v1 scope: Android only. Windows (net8.0-windows10.0.19041.0) was attempted and reverted:
+      the WinUI XAML compiler (XamlCompiler.exe, from the WindowsAppSDK buildTransitive targets)
+      fails on EntityHealthCollectionView.xaml with MSB3073 exit code 1 and no further diagnostic
+      surfaced anywhere in CI's log capture. WindowsPackageType=None (tried first, see git history)
+      did not change the failure at all: same error, same line, so whatever that property
+      actually controls, it isn't this. Needs local repro with real MAUI tooling to get past "exit
+      code 1" to an actual cause; guessing further via CI rounds stopped being worth it. iOS/
+      MacCatalyst are separately blocked on this repo's CI having no macOS runner at all. Both
+      gaps are recorded in CLAUDE.md's backlog; see BlackBeard.Playbook's idiosyncrasies journal
+      for the full failure history before attempting Windows again.
+    -->
+    <TargetFrameworks>net8.0-android</TargetFrameworks>
+    <UseMaui>true</UseMaui>
+
+    <!--
+      NETSDK1202 ("workload out of support"), suppressed rather than chased by TFM/SDK version:
+      pinning the SDK to 8.0.x instead (an earlier attempt, since reverted) broke analyzer loading
+      for every project in the repo: Microsoft.CodeAnalysis.PublicApiAnalyzers 4.14.0 needs a
+      newer Roslyn than an 8.0.x SDK bundles. The workload being out of support means Android
+      builds here stop receiving security updates, which is an acceptable, explicit trade-off for
+      a control library's Android target, not a reason to force an older SDK repo-wide.
+
+      This check is raised via an unconditional <Error> task in the SDK's own
+      Microsoft.NET.EolTargetFrameworks.targets, not a normal compiler warning, so NoWarn alone
+      cannot suppress it: CheckEolTargetFramework is the property that file itself gates the
+      check on. NoWarn is kept too in case a related diagnostic does go through the warning path.
+    -->
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <NoWarn>$(NoWarn);NETSDK1202</NoWarn>
+
+    <SingleProject>false</SingleProject>
+    <RootNamespace>Argus.Controls.Maui</RootNamespace>
+    <AssemblyName>Argus.Controls.Maui</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <PackageId>BlackBeard.Argus.Controls.Maui</PackageId>
+    <Description>A .NET MAUI CollectionView-based control that visualises IEntityStreamMonitor output: 6DOF, per-entity anomaly counts, severity colour and flash. Pair with BlackBeard.Argus.Controls (portable, no MAUI Controls dependency) for the underlying view-model.</Description>
+
+    <!--
+      Inherited InvariantGlobalization=true from Directory.Build.props does not suit a UI control
+      library: MAUI/platform culture-aware formatting expects it off. Overridden here, scoped to
+      this project only.
+    -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+
+    <SupportedOSPlatformVersion>21.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Argus.Controls/Argus.Controls.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Architecture rule 3, as amended: this is the one and only project in the repository
+      permitted to reference Microsoft.Maui.Controls. ArgusGuardUiDependencies in
+      Directory.Build.targets enforces exactly that: every other project, Argus.Graphics and
+      Argus.Controls included, fails the build the moment it references Microsoft.Maui.Controls
+      or sets UseMaui.
+    -->
+    <PackageReference Include="Microsoft.Maui.Controls" />
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <MauiXaml Update="EntityHealthCollectionView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </MauiXaml>
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="PublicAPI.Shipped.txt" />
+    <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+# pack-local -- pack every packable project under src/ into ./artifacts/local-feed.
+#
+# "Packable" is discovered, not hand-maintained here: this scans src/*/*.csproj and packs
+# whichever ones declare <IsPackable>true</IsPackable> in their own file. Add a new packable
+# project by setting that in its csproj -- this script needs no further change to pick it up.
+# The previous version of this script kept a hardcoded array of project paths, which is exactly
+# the kind of thing that silently drifts: add a project, forget to add it here too, and it just
+# never gets packed with nothing complaining until a consumer's restore fails for a package that
+# was never produced. (If you'd rather ask MSBuild's own evaluation than match the declaration
+# textually -- e.g. because a project sets IsPackable conditionally -- swap the grep below for
+# `dotnet msbuild "$csproj" -nologo -getProperty:IsPackable`, at the cost of needing the SDK,
+# and for Argus.Controls.Maui the MAUI workload, just to answer the question.)
+#
+# Scoped to src/ specifically, never samples/ or tests/: those consume the *packed* artifacts
+# from this feed rather than the projects (see CLAUDE.md's Layout section), so packing has to
+# happen and complete before they can even restore. Discovering packable projects from the whole
+# solution instead of just src/ would create exactly that chicken-and-egg restore failure on a
+# clean checkout.
+#
+# samples/ and tests/Argus.Package.Tests consume the packages rather than the projects, so a
+# leaked type, a dependency that crept into the nuspec, or a target framework that does not
+# resolve fails inside this repository rather than in a consumer's build three months from
+# now. That only works if the feed is filled first, which is what this does.
+#
+# Build order on a clean clone:
+#
+#   scripts/pack-local
+#   dotnet test Argus.sln
+#
+# Usage: scripts/pack-local [--version <version>] [--configuration <Debug|Release>] [--clean]
+
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+version="${ARGUS_PACKAGE_VERSION:-0.1.0-local}"
+configuration="Release"
+clean=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --version)
+      version="${2:?--version requires a value}"
+      shift 2
+      ;;
+    --configuration|-c)
+      configuration="${2:?--configuration requires a value}"
+      shift 2
+      ;;
+    --clean)
+      clean=1
+      shift
+      ;;
+    -h|--help)
+      sed -n '2,31p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      exit 0
+      ;;
+    *)
+      echo "pack-local: unknown option '$1'" >&2
+      exit 2
+      ;;
+  esac
+done
+
+feed="$repo_root/artifacts/local-feed"
+mkdir -p "$feed"
+
+if [[ $clean -eq 1 ]]; then
+  # Stale artifacts are worse than none: NuGet resolves the highest version in the feed, so a
+  # package left over from an earlier version silently wins and the tests pass against code
+  # that no longer exists.
+  find "$feed" -maxdepth 1 -type f \( -name '*.nupkg' -o -name '*.snupkg' \) -delete
+fi
+
+echo "pack-local: discovering packable projects under src/"
+
+packable=()
+while IFS= read -r -d '' csproj; do
+  if grep -Eiq '<IsPackable>[[:space:]]*true[[:space:]]*</IsPackable>' "$csproj"; then
+    packable+=("$csproj")
+  fi
+done < <(find "$repo_root/src" -mindepth 2 -maxdepth 2 -name '*.csproj' -print0 | sort -z)
+
+if [[ ${#packable[@]} -eq 0 ]]; then
+  # Zero packable projects is a script/repo state bug, not "nothing to do" -- fail loudly
+  # rather than silently produce an empty feed.
+  echo "pack-local: found no project under src/ with IsPackable=true. That's wrong, not empty." >&2
+  exit 1
+fi
+
+echo "pack-local: ${#packable[@]} packable project(s):"
+for p in "${packable[@]}"; do
+  echo "  - ${p#"$repo_root"/}"
+done
+echo ""
+echo "pack-local: packing version $version ($configuration) into $feed"
+
+for project in "${packable[@]}"; do
+  echo ""
+  echo "  -> ${project#"$repo_root"/}"
+  dotnet pack "$project" \
+    --configuration "$configuration" \
+    -p:ArgusPackageVersion="$version" \
+    -p:PackageOutputPath="$feed" \
+    --nologo
+done
+
+echo ""
+echo "pack-local: feed contents"
+ls -1 "$feed" | sed 's/^/  /'
+
+echo ""
+echo "pack-local: done. Consumers of the feed restore Argus.* at version $version;"
+echo "            set ArgusPackageVersion to match if you passed --version."
