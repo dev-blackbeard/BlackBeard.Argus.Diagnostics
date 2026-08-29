@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using Argus.Contracts;
+using Argus.Graphics;
 using Microsoft.Maui.Graphics;
 
 namespace Argus.Controls;
@@ -26,6 +27,7 @@ public sealed class EntityHealthItemViewModel : INotifyPropertyChanged
     private Color _color = Colors.Transparent;
     private double _receiptOpacity;
     private bool _isExpanded;
+    private IReadOnlyList<AlarmChipViewModel> _alarmChips = new List<AlarmChipViewModel>(0).AsReadOnly();
 
     internal EntityHealthItemViewModel(EntityKey key)
     {
@@ -69,6 +71,18 @@ public sealed class EntityHealthItemViewModel : INotifyPropertyChanged
     public IReadOnlyDictionary<HealthFlags, long> FlagCounts
     {
         get { return _flagCounts; }
+    }
+
+    /// <summary>
+    /// <see cref="FlagCounts"/>, as ready-to-render chips: one per flag that has fired at least
+    /// once, each already carrying its own resolved colour. Never contains a zero-count entry —
+    /// a flag only appears here once <see cref="Apply"/> has actually raised it, the same
+    /// invariant <see cref="FlagCounts"/> itself holds.
+    /// </summary>
+    public IReadOnlyList<AlarmChipViewModel> AlarmChips
+    {
+        get { return _alarmChips; }
+        private set { SetField(ref _alarmChips, value); }
     }
 
     /// <summary>The colour currently resolved for this row, including any flash cadence applied.</summary>
@@ -119,6 +133,19 @@ public sealed class EntityHealthItemViewModel : INotifyPropertyChanged
         LatestReport = report;
         LatestSample = sample;
         OnPropertyChanged(nameof(FlagCounts));
+    }
+
+    /// <summary>Rebuilds <see cref="AlarmChips"/> from the current <see cref="FlagCounts"/>.</summary>
+    /// <param name="colors">The policy to resolve each chip's colour from.</param>
+    internal void RefreshAlarmChips(ColorPolicy colors)
+    {
+        var chips = new List<AlarmChipViewModel>(_flagCounts.Count);
+        foreach (KeyValuePair<HealthFlags, long> pair in _flagCounts)
+        {
+            chips.Add(new AlarmChipViewModel(pair.Key, pair.Value, colors.GetColorForFlag(pair.Key)));
+        }
+
+        AlarmChips = chips.AsReadOnly();
     }
 
     private void SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)

@@ -92,6 +92,75 @@ public sealed class PresentationTests
     }
 
     [Fact]
+    public void GetColorForFlagPrefersAnOverrideOverTheCategoryColor()
+    {
+        var overrideColor = new Color(0.1f, 0.2f, 0.3f);
+        var policy = new ColorPolicy().Override(HealthFlags.Teleport, overrideColor);
+
+        Assert.Equal(overrideColor, policy.GetColorForFlag(HealthFlags.Teleport));
+    }
+
+    [Fact]
+    public void GetColorForFlagFallsBackToTheCategoryColorWithNoOverride()
+    {
+        var policy = new ColorPolicy();
+        Color categoryColor = policy.GetColorForFlag(HealthFlags.GroupOutlier);
+        Color anotherGroupFlag = policy.GetColorForFlag(HealthFlags.CohesionBreak);
+
+        Assert.Equal(categoryColor, anotherGroupFlag);
+    }
+
+    [Fact]
+    public void ResolveAndGetColorForFlagAgreeForASingleFlagReport()
+    {
+        var policy = new ColorPolicy();
+        EntityHealthReport report = Report(HealthFinding.Flagged(HealthFlags.Teleport, "d", "m", "e"));
+
+        Assert.Equal(policy.GetColorForFlag(HealthFlags.Teleport), policy.Resolve(report));
+    }
+
+    [Theory]
+    [InlineData(HealthFlags.NonPositiveDeltaTime, AlarmGlyphKind.ReverseClock)]
+    [InlineData(HealthFlags.DuplicateSample, AlarmGlyphKind.Duplicate)]
+    [InlineData(HealthFlags.OutOfOrderSequence, AlarmGlyphKind.Shuffled)]
+    [InlineData(HealthFlags.NonFiniteValue, AlarmGlyphKind.Infinity)]
+    [InlineData(HealthFlags.Teleport, AlarmGlyphKind.JumpArrow)]
+    [InlineData(HealthFlags.ImplausibleSpeed, AlarmGlyphKind.Chevron)]
+    [InlineData(HealthFlags.NonNormalisedQuaternion, AlarmGlyphKind.SquashedCircle)]
+    [InlineData(HealthFlags.GroupOutlier, AlarmGlyphKind.Outlier)]
+    public void EveryImplementedFlagHasItsOwnDistinctGlyph(HealthFlags flag, AlarmGlyphKind expected)
+    {
+        Assert.Equal(expected, AlarmIconPainter.GetGlyphKind(flag));
+    }
+
+    [Fact]
+    public void AnUnassignedFlagFallsBackToThePlaceholderGlyph()
+    {
+        // A stub detector's flag -- never assigned a shape, since it can never actually fire.
+        Assert.Equal(AlarmGlyphKind.Placeholder, AlarmIconPainter.GetGlyphKind(HealthFlags.FieldShift));
+    }
+
+    [Fact]
+    public void EveryImplementedGlyphIsDistinctFromEveryOther()
+    {
+        var kinds = new HashSet<AlarmGlyphKind>();
+        foreach (HealthFlags flag in new[]
+                 {
+                     HealthFlags.NonPositiveDeltaTime,
+                     HealthFlags.DuplicateSample,
+                     HealthFlags.OutOfOrderSequence,
+                     HealthFlags.NonFiniteValue,
+                     HealthFlags.Teleport,
+                     HealthFlags.ImplausibleSpeed,
+                     HealthFlags.NonNormalisedQuaternion,
+                     HealthFlags.GroupOutlier,
+                 })
+        {
+            Assert.True(kinds.Add(AlarmIconPainter.GetGlyphKind(flag)), flag + " shares a glyph with another implemented flag.");
+        }
+    }
+
+    [Fact]
     public void SubtitleIsSelfDescribing()
     {
         var formatter = new SubtitleFormatter();

@@ -1,7 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Globalization;
-using Argus.Contracts;
+using Argus.Controls;
 using Microsoft.Maui.Controls;
 
 namespace Argus.Controls.Maui;
@@ -35,17 +34,25 @@ internal sealed class ExpanderLabelConverter : IValueConverter
     }
 }
 
-/// <summary>Converts one <see cref="EntityHealthItemViewModel.FlagCounts"/> entry to a display string.</summary>
-internal sealed class FlagCountConverter : IValueConverter
+/// <summary>
+/// Converts an <see cref="AlarmChipViewModel"/> or a <see cref="LegendEntry"/> to the
+/// <see cref="IDrawable"/> a <c>GraphicsView</c> renders its icon with.
+/// </summary>
+internal sealed class AlarmIconDrawableConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is KeyValuePair<HealthFlags, long> pair)
+        if (value is AlarmChipViewModel chip)
         {
-            return pair.Key.ToString() + " ×" + pair.Value.ToString(CultureInfo.InvariantCulture);
+            return new AlarmIconDrawable(chip.Flag, chip.Color);
         }
 
-        return string.Empty;
+        if (value is LegendEntry entry && entry.Flag.HasValue)
+        {
+            return new AlarmIconDrawable(entry.Flag.Value, entry.Color);
+        }
+
+        return null;
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

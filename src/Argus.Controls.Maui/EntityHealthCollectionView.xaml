@@ -11,7 +11,7 @@
         <ResourceDictionary>
             <local:StringNotNullOrEmptyConverter x:Key="StringNotNullOrEmptyConverter" />
             <local:ExpanderLabelConverter x:Key="ExpanderLabelConverter" />
-            <local:FlagCountConverter x:Key="FlagCountConverter" />
+            <local:AlarmIconDrawableConverter x:Key="AlarmIconDrawableConverter" />
         </ResourceDictionary>
     </ContentView.Resources>
 
@@ -64,11 +64,18 @@
                             </Grid>
                         </VerticalStackLayout>
 
-                        <FlexLayout BindableLayout.ItemsSource="{Binding FlagCounts}" Wrap="Wrap" Direction="Row">
+                        <!-- One chip per flag that has actually fired: an icon plus how many times. A flag
+                             with a zero count is never in AlarmChips to begin with (see its own remarks),
+                             so there is nothing here to hide: the chip simply does not exist yet. -->
+                        <FlexLayout BindableLayout.ItemsSource="{Binding AlarmChips}" Wrap="Wrap" Direction="Row">
                             <BindableLayout.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Margin="2" Padding="6,2" StrokeThickness="0" BackgroundColor="#33000000">
-                                        <Label FontSize="11" Text="{Binding ., Converter={StaticResource FlagCountConverter}}" />
+                                <DataTemplate x:DataType="controls:AlarmChipViewModel">
+                                    <Border Margin="2" Padding="4,2" StrokeThickness="0" BackgroundColor="#33000000">
+                                        <HorizontalStackLayout Spacing="3">
+                                            <GraphicsView WidthRequest="14" HeightRequest="14" VerticalOptions="Center"
+                                                          Drawable="{Binding ., Converter={StaticResource AlarmIconDrawableConverter}}" />
+                                            <Label FontSize="11" Text="{Binding Count}" VerticalOptions="Center" />
+                                        </HorizontalStackLayout>
                                     </Border>
                                 </DataTemplate>
                             </BindableLayout.ItemTemplate>

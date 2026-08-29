@@ -125,15 +125,30 @@ public sealed class ColorPolicy
             return report.IsFullyEvaluated ? HealthyColor : NotEvaluatedColor;
         }
 
-        HealthFlags dominant = MostSevere(report.Flags);
+        return GetColorForFlag(MostSevere(report.Flags));
+    }
 
+    /// <summary>
+    /// Picks the colour for a single flag, independent of any report: an override if one is set
+    /// for it, otherwise its category's colour.
+    /// </summary>
+    /// <param name="flag">A single-bit flag value.</param>
+    /// <returns>The colour a row's per-flag alarm chip or a legend entry for this flag should use.</returns>
+    /// <remarks>
+    /// The single-flag counterpart to <see cref="Resolve(EntityHealthReport)"/>'s multi-flag,
+    /// precedence-driven answer — used wherever a caller already knows which one flag it means
+    /// (a per-flag chip, a legend entry) rather than needing this policy to pick the most severe
+    /// one out of several.
+    /// </remarks>
+    public Color GetColorForFlag(HealthFlags flag)
+    {
         Color color;
-        if (_flagOverrides.TryGetValue(dominant, out color))
+        if (_flagOverrides.TryGetValue(flag, out color))
         {
             return color;
         }
 
-        HealthFlagCategory category = HealthFlagInfo.GetCategory(dominant);
+        HealthFlagCategory category = HealthFlagInfo.GetCategory(flag);
         if (_categoryColors.TryGetValue(category, out color))
         {
             return color;

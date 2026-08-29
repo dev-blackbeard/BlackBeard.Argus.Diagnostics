@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using Argus.Contracts;
 using Argus.Controls;
 using Argus.Graphics;
@@ -165,6 +166,47 @@ public sealed class EntityHealthCollectionTests
 
         collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? refreshed);
         Assert.Equal(0.6, refreshed!.ReceiptOpacity);
+    }
+
+    [Fact]
+    public void AlarmChipsContainsOneEntryPerRaisedFlagWithItsCount()
+    {
+        var collection = new EntityHealthCollection();
+
+        collection.Observe(FlaggedReport("entity-1", HealthFlags.Teleport));
+        collection.Observe(FlaggedReport("entity-1", HealthFlags.Teleport));
+        collection.Observe(FlaggedReport("entity-1", HealthFlags.GroupOutlier));
+
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? item);
+
+        Assert.Equal(2, item!.AlarmChips.Count);
+        AlarmChipViewModel teleportChip = item.AlarmChips.Single(c => c.Flag == HealthFlags.Teleport);
+        AlarmChipViewModel outlierChip = item.AlarmChips.Single(c => c.Flag == HealthFlags.GroupOutlier);
+        Assert.Equal(2L, teleportChip.Count);
+        Assert.Equal(1L, outlierChip.Count);
+    }
+
+    [Fact]
+    public void AlarmChipsNeverContainsAFlagThatHasNotFired()
+    {
+        var collection = new EntityHealthCollection();
+        collection.Observe(HealthyReport("entity-1"));
+
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? item);
+
+        Assert.Empty(item!.AlarmChips);
+    }
+
+    [Fact]
+    public void AlarmChipsResolveTheirColourThroughTheConfiguredPolicy()
+    {
+        var colors = new ColorPolicy();
+        var collection = new EntityHealthCollection(colors);
+        collection.Observe(FlaggedReport("entity-1", HealthFlags.Teleport));
+
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? item);
+
+        Assert.Equal(colors.GetColorForFlag(HealthFlags.Teleport), item!.AlarmChips.Single().Color);
     }
 
     [Fact]

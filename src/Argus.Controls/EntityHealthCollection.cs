@@ -89,6 +89,7 @@ public sealed class EntityHealthCollection
         }
 
         item.Apply(report, sample);
+        item.RefreshAlarmChips(Colors);
         item.Color = Colors.Resolve(report, _renderCount);
         item.LastUpdatedRenderCount = _renderCount;
         item.ReceiptOpacity = Receipt.Resolve(0);

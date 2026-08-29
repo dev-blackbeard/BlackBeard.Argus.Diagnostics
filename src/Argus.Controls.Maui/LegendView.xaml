@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView
+    x:Class="Argus.Controls.Maui.LegendView"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Argus.Controls;assembly=Argus.Controls"
+    xmlns:local="clr-namespace:Argus.Controls.Maui"
+    x:Name="Root">
+
+    <ContentView.Resources>
+        <ResourceDictionary>
+            <local:AlarmIconDrawableConverter x:Key="AlarmIconDrawableConverter" />
+        </ResourceDictionary>
+    </ContentView.Resources>
+
+    <CollectionView x:Name="ItemsView" SelectionMode="None">
+        <CollectionView.ItemTemplate>
+            <DataTemplate x:DataType="controls:LegendEntry">
+                <HorizontalStackLayout Spacing="8" Padding="4,3">
+
+                    <!-- A health-state row (healthy / not evaluated) has no flag and no icon: a plain
+                         colour swatch. An alarm row draws AlarmIconPainter's shape for its flag instead,
+                         in the same colour: the same two visual channels (colour, icon) the rows above
+                         this legend actually use, so the key matches what it is explaining. -->
+                    <BoxView WidthRequest="12" HeightRequest="12" Color="{Binding Color}" CornerRadius="2"
+                             VerticalOptions="Center" IsVisible="{Binding IsSwatchOnly}" />
+                    <GraphicsView WidthRequest="16" HeightRequest="16" VerticalOptions="Center"
+                                  IsVisible="{Binding HasIcon}"
+                                  Drawable="{Binding ., Converter={StaticResource AlarmIconDrawableConverter}}" />
+
+                    <VerticalStackLayout Spacing="0">
+                        <Label Text="{Binding Title}" FontAttributes="Bold" FontSize="12" />
+                        <Label Text="{Binding Definition}" FontSize="11" Opacity="0.75" LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+
+                </HorizontalStackLayout>
+            </DataTemplate>
+        </CollectionView.ItemTemplate>
+    </CollectionView>
+
+</ContentView>
