@@ -1,5 +1,22 @@
 #!/usr/bin/env bash
-# pack-local -- pack the shipping packages into ./artifacts/local-feed.
+# pack-local -- pack every packable project under src/ into ./artifacts/local-feed.
+#
+# "Packable" is discovered, not hand-maintained here: this scans src/*/*.csproj and packs
+# whichever ones declare <IsPackable>true</IsPackable> in their own file. Add a new packable
+# project by setting that in its csproj -- this script needs no further change to pick it up.
+# The previous version of this script kept a hardcoded array of project paths, which is exactly
+# the kind of thing that silently drifts: add a project, forget to add it here too, and it just
+# never gets packed with nothing complaining until a consumer's restore fails for a package that
+# was never produced. (If you'd rather ask MSBuild's own evaluation than match the declaration
+# textually -- e.g. because a project sets IsPackable conditionally -- swap the grep below for
+# `dotnet msbuild "$csproj" -nologo -getProperty:IsPackable`, at the cost of needing the SDK,
+# and for Argus.Controls.Maui the MAUI workload, just to answer the question.)
+#
+# Scoped to src/ specifically, never samples/ or tests/: those consume the *packed* artifacts
+# from this feed rather than the projects (see CLAUDE.md's Layout section), so packing has to
+# happen and complete before they can even restore. Discovering packable projects from the whole
+# solution instead of just src/ would create exactly that chicken-and-egg restore failure on a
+# clean checkout.
 #
 # samples/ and tests/Argus.Package.Tests consume the packages rather than the projects, so a
 # leaked type, a dependency that crept into the nuspec, or a target framework that does not
@@ -37,7 +54,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     -h|--help)
-      sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      sed -n '2,31p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *)
@@ -57,19 +74,32 @@ if [[ $clean -eq 1 ]]; then
   find "$feed" -maxdepth 1 -type f \( -name '*.nupkg' -o -name '*.snupkg' \) -delete
 fi
 
-packable=(
-  "src/Argus.Core/Argus.Core.csproj"
-  "src/Argus.Graphics/Argus.Graphics.csproj"
-  "src/Argus.Controls/Argus.Controls.csproj"
-  "src/Argus.Controls.Maui/Argus.Controls.Maui.csproj"
-  "src/Argus.Testing/Argus.Testing.csproj"
-)
+echo "pack-local: discovering packable projects under src/"
 
+packable=()
+while IFS= read -r -d '' csproj; do
+  if grep -Eiq '<IsPackable>[[:space:]]*true[[:space:]]*</IsPackable>' "$csproj"; then
+    packable+=("$csproj")
+  fi
+done < <(find "$repo_root/src" -mindepth 2 -maxdepth 2 -name '*.csproj' -print0 | sort -z)
+
+if [[ ${#packable[@]} -eq 0 ]]; then
+  # Zero packable projects is a script/repo state bug, not "nothing to do" -- fail loudly
+  # rather than silently produce an empty feed.
+  echo "pack-local: found no project under src/ with IsPackable=true. That's wrong, not empty." >&2
+  exit 1
+fi
+
+echo "pack-local: ${#packable[@]} packable project(s):"
+for p in "${packable[@]}"; do
+  echo "  - ${p#"$repo_root"/}"
+done
+echo ""
 echo "pack-local: packing version $version ($configuration) into $feed"
 
 for project in "${packable[@]}"; do
   echo ""
-  echo "  -> $project"
+  echo "  -> ${project#"$repo_root"/}"
   dotnet pack "$project" \
     --configuration "$configuration" \
     -p:ArgusPackageVersion="$version" \
