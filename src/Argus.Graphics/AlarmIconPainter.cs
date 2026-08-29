@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Argus.Contracts;
+using Microsoft.Maui.Graphics;
 
 namespace Argus.Graphics;
 
