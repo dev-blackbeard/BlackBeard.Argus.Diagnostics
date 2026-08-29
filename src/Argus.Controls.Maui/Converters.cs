@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using Argus.Controls;
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Graphics;
 
 namespace Argus.Controls.Maui;
 
