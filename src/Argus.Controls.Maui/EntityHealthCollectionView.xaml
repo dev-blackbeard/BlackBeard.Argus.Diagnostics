@@ -18,7 +18,7 @@
     <CollectionView x:Name="ItemsView" SelectionMode="None">
         <CollectionView.ItemTemplate>
             <DataTemplate x:DataType="controls:EntityHealthItemViewModel">
-                <Border Margin="4" Padding="10" StrokeThickness="1" BackgroundColor="{Binding Color}">
+                <Border Margin="4" Padding="10" StrokeThickness="1" Stroke="{Binding Color}">
                     <VerticalStackLayout Spacing="4">
 
                         <Grid ColumnDefinitions="*,Auto">
