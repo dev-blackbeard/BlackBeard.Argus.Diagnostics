@@ -72,6 +72,26 @@ public sealed class PresentationTests
     }
 
     [Fact]
+    public void ReceiptPulseIsAtPeakForNonPositiveRendersSinceUpdate()
+    {
+        var pulse = new ReceiptPulse { FadeRenders = 8, PeakOpacity = 0.6 };
+
+        Assert.Equal(0.6, pulse.Resolve(0));
+        Assert.Equal(0.6, pulse.Resolve(-1));
+    }
+
+    [Fact]
+    public void ReceiptPulseFadesLinearlyToZeroByFadeRenders()
+    {
+        var pulse = new ReceiptPulse { FadeRenders = 8, PeakOpacity = 0.8 };
+
+        Assert.Equal(0.8, pulse.Resolve(0));
+        Assert.Equal(0.4, pulse.Resolve(4));
+        Assert.Equal(0.0, pulse.Resolve(8));
+        Assert.Equal(0.0, pulse.Resolve(20));
+    }
+
+    [Fact]
     public void SubtitleIsSelfDescribing()
     {
         var formatter = new SubtitleFormatter();

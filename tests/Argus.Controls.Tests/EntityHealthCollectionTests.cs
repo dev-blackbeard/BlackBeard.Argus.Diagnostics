@@ -125,6 +125,49 @@ public sealed class EntityHealthCollectionTests
     }
 
     [Fact]
+    public void ObserveSetsReceiptOpacityToThePulsesPeak()
+    {
+        var collection = new EntityHealthCollection { Receipt = new ReceiptPulse { PeakOpacity = 0.6 } };
+
+        collection.Observe(HealthyReport("entity-1"));
+
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? item);
+        Assert.Equal(0.6, item!.ReceiptOpacity);
+    }
+
+    [Fact]
+    public void RenderTickFadesReceiptOpacityForARowThatHasNotBeenObservedAgain()
+    {
+        var collection = new EntityHealthCollection { Receipt = new ReceiptPulse { FadeRenders = 4, PeakOpacity = 0.8 } };
+        collection.Observe(HealthyReport("entity-1"));
+
+        collection.RenderTick();
+        collection.RenderTick();
+
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? item);
+        Assert.Equal(0.4, item!.ReceiptOpacity);
+    }
+
+    [Fact]
+    public void ObserveResetsReceiptOpacityToThePeakEvenAfterItHasFaded()
+    {
+        var collection = new EntityHealthCollection { Receipt = new ReceiptPulse { FadeRenders = 2, PeakOpacity = 0.6 } };
+        collection.Observe(HealthyReport("entity-1"));
+
+        collection.RenderTick();
+        collection.RenderTick();
+        collection.RenderTick();
+
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? faded);
+        Assert.Equal(0.0, faded!.ReceiptOpacity);
+
+        collection.Observe(HealthyReport("entity-1"));
+
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? refreshed);
+        Assert.Equal(0.6, refreshed!.ReceiptOpacity);
+    }
+
+    [Fact]
     public void ClearRemovesEveryRowAndForgetsEveryKey()
     {
         var collection = new EntityHealthCollection();

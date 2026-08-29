@@ -24,6 +24,7 @@ public sealed class EntityHealthItemViewModel : INotifyPropertyChanged
     private EntityHealthReport? _report;
     private EntitySample? _sample;
     private Color _color = Colors.Transparent;
+    private double _receiptOpacity;
     private bool _isExpanded;
 
     internal EntityHealthItemViewModel(EntityKey key)
@@ -76,6 +77,25 @@ public sealed class EntityHealthItemViewModel : INotifyPropertyChanged
         get { return _color; }
         internal set { SetField(ref _color, value); }
     }
+
+    /// <summary>
+    /// A brief, low-emphasis pulse driven by <see cref="EntityHealthCollection"/>'s configured
+    /// <see cref="Argus.Graphics.ReceiptPulse"/>, fading from its peak toward zero after each
+    /// observed report. Distinct from <see cref="Color"/>: this says "new data arrived", not
+    /// "something is wrong" — bind a separate, subtler visual element to it than the one bound to
+    /// <see cref="Color"/>.
+    /// </summary>
+    public double ReceiptOpacity
+    {
+        get { return _receiptOpacity; }
+        internal set { SetField(ref _receiptOpacity, value); }
+    }
+
+    /// <summary>
+    /// The host collection's render count at the point this row was last <see cref="Apply"/>-ed.
+    /// Presentation bookkeeping for <see cref="ReceiptOpacity"/>'s fade, not meant for a binding.
+    /// </summary>
+    internal long LastUpdatedRenderCount { get; set; }
 
     /// <summary>Whether the row's "more" section — the remaining 6DOF fields — is expanded.</summary>
     public bool IsExpanded
