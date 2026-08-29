@@ -8,7 +8,7 @@ namespace Argus.Graphics;
 /// <summary>The basic shape drawn for a flag's icon.</summary>
 /// <remarks>
 /// Kept separate from <see cref="HealthFlags"/> itself because several flags can legitimately
-/// share a shape (none do yet, but nothing stops it), and because <see cref="GetGlyphKind"/>
+/// share a shape (none do yet, but nothing stops it), and because <see cref="AlarmIconPainter.GetGlyphKind"/>
 /// gives a way to test "which shape does this flag get" without needing an <c>ICanvas</c> at
 /// all.
 /// </remarks>
