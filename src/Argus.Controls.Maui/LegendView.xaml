@@ -13,29 +13,46 @@
         </ResourceDictionary>
     </ContentView.Resources>
 
-    <CollectionView x:Name="ItemsView" SelectionMode="None">
-        <CollectionView.ItemTemplate>
-            <DataTemplate x:DataType="controls:LegendEntry">
-                <HorizontalStackLayout Spacing="8" Padding="4,3">
+    <Grid RowDefinitions="Auto,*,Auto">
 
-                    <!-- A health-state row (healthy / not evaluated) has no flag and no icon: a plain
-                         colour swatch. An alarm row draws AlarmIconPainter's shape for its flag instead,
-                         in the same colour: the same two visual channels (colour, icon) the rows above
-                         this legend actually use, so the key matches what it is explaining. -->
-                    <BoxView WidthRequest="12" HeightRequest="12" Color="{Binding Color}" CornerRadius="2"
-                             VerticalOptions="Center" IsVisible="{Binding IsSwatchOnly}" />
-                    <GraphicsView WidthRequest="16" HeightRequest="16" VerticalOptions="Center"
-                                  IsVisible="{Binding HasIcon}"
-                                  Drawable="{Binding ., Converter={StaticResource AlarmIconDrawableConverter}}" />
+        <!-- Neither arrow is a value-converter binding: CollectionView doesn't expose "am I
+             scrolled to the top/bottom" as a bindable property, only as arguments on its Scrolled
+             event, so OnItemsViewScrolled below sets these two directly. Hidden by default so a
+             legend short enough to need no scrolling shows neither. -->
+        <Label Grid.Row="0" x:Name="UpArrow" Text="▲ more above" HorizontalOptions="Center"
+               FontSize="11" Opacity="0.6" IsVisible="False" />
 
-                    <VerticalStackLayout Spacing="0">
-                        <Label Text="{Binding Title}" FontAttributes="Bold" FontSize="12" />
-                        <Label Text="{Binding Definition}" FontSize="11" Opacity="0.75" LineBreakMode="WordWrap" />
-                    </VerticalStackLayout>
+        <CollectionView Grid.Row="1" x:Name="ItemsView" SelectionMode="None" Scrolled="OnItemsViewScrolled">
+            <CollectionView.ItemsLayout>
+                <GridItemsLayout Orientation="Vertical" Span="2" />
+            </CollectionView.ItemsLayout>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="controls:LegendEntry">
+                    <!-- Icon/swatch plus title only: a two-column grid has no room for the full
+                         one-line definition next to every entry. Tap an entry for that instead
+                         (OnLegendEntryTapped), which is also why the whole cell carries the gesture
+                         recognizer rather than just the label. -->
+                    <Grid Padding="4" ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnLegendEntryTapped" />
+                        </Grid.GestureRecognizers>
 
-                </HorizontalStackLayout>
-            </DataTemplate>
-        </CollectionView.ItemTemplate>
-    </CollectionView>
+                        <BoxView Grid.Column="0" WidthRequest="12" HeightRequest="12" Color="{Binding Color}"
+                                 CornerRadius="2" VerticalOptions="Center" IsVisible="{Binding IsSwatchOnly}" />
+                        <GraphicsView Grid.Column="0" WidthRequest="16" HeightRequest="16" VerticalOptions="Center"
+                                      IsVisible="{Binding HasIcon}"
+                                      Drawable="{Binding ., Converter={StaticResource AlarmIconDrawableConverter}}" />
+
+                        <Label Grid.Column="1" Text="{Binding Title}" FontSize="12" LineBreakMode="TailTruncation"
+                               VerticalOptions="Center" />
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <Label Grid.Row="2" x:Name="DownArrow" Text="▼ more below" HorizontalOptions="Center"
+               FontSize="11" Opacity="0.6" IsVisible="False" />
+
+    </Grid>
 
 </ContentView>
