@@ -210,6 +210,19 @@ public sealed class EntityHealthCollectionTests
     }
 
     [Fact]
+    public void AlarmChipsForegroundAlwaysContrastsItsOwnColour()
+    {
+        var colors = new ColorPolicy();
+        var collection = new EntityHealthCollection(colors);
+        collection.Observe(FlaggedReport("entity-1", HealthFlags.Teleport));
+
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? item);
+        AlarmChipViewModel chip = item!.AlarmChips.Single();
+
+        Assert.Equal(ContrastColor.ForBackground(chip.Color), chip.Foreground);
+    }
+
+    [Fact]
     public void ClearRemovesEveryRowAndForgetsEveryKey()
     {
         var collection = new EntityHealthCollection();

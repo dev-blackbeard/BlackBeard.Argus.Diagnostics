@@ -142,7 +142,8 @@ public sealed class EntityHealthItemViewModel : INotifyPropertyChanged
         var chips = new List<AlarmChipViewModel>(_flagCounts.Count);
         foreach (KeyValuePair<HealthFlags, long> pair in _flagCounts)
         {
-            chips.Add(new AlarmChipViewModel(pair.Key, pair.Value, colors.GetColorForFlag(pair.Key)));
+            Color background = colors.GetColorForFlag(pair.Key);
+            chips.Add(new AlarmChipViewModel(pair.Key, pair.Value, background, ContrastColor.ForBackground(background)));
         }
 
         AlarmChips = chips.AsReadOnly();

@@ -39,18 +39,23 @@ internal sealed class ExpanderLabelConverter : IValueConverter
 /// Converts an <see cref="AlarmChipViewModel"/> or a <see cref="LegendEntry"/> to the
 /// <see cref="IDrawable"/> a <c>GraphicsView</c> renders its icon with.
 /// </summary>
+/// <remarks>
+/// Draws in each source's <c>Foreground</c>, not its <c>Color</c>: <c>Color</c> is now the solid
+/// backing plate behind the icon (the chip's pill, the legend row's swatch), so drawing the icon
+/// in that same colour again would make it disappear into its own background.
+/// </remarks>
 internal sealed class AlarmIconDrawableConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is AlarmChipViewModel chip)
         {
-            return new AlarmIconDrawable(chip.Flag, chip.Color);
+            return new AlarmIconDrawable(chip.Flag, chip.Foreground);
         }
 
         if (value is LegendEntry entry && entry.Flag.HasValue)
         {
-            return new AlarmIconDrawable(entry.Flag.Value, entry.Color);
+            return new AlarmIconDrawable(entry.Flag.Value, entry.Foreground);
         }
 
         return null;

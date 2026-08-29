@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Argus.Contracts;
 using Argus.Graphics;
+using Microsoft.Maui.Graphics;
 
 namespace Argus.Controls;
 
@@ -53,17 +54,24 @@ public static class LegendCatalogue
 
         var entries = new List<LegendEntry>(ImplementedFlags.Count + 2)
         {
-            new LegendEntry("Healthy", HealthFlagInfo.GetDefinition(HealthFlags.None), colors.HealthyColor, null),
+            new LegendEntry(
+                "Healthy",
+                HealthFlagInfo.GetDefinition(HealthFlags.None),
+                colors.HealthyColor,
+                ContrastColor.ForBackground(colors.HealthyColor),
+                null),
             new LegendEntry(
                 "Not evaluated",
                 "One or more detectors could not run against this sample, so nothing was concluded about the condition they cover.",
                 colors.NotEvaluatedColor,
+                ContrastColor.ForBackground(colors.NotEvaluatedColor),
                 null),
         };
 
         foreach (HealthFlags flag in ImplementedFlags)
         {
-            entries.Add(new LegendEntry(flag.ToString(), HealthFlagInfo.GetDefinition(flag), colors.GetColorForFlag(flag), flag));
+            Color background = colors.GetColorForFlag(flag);
+            entries.Add(new LegendEntry(flag.ToString(), HealthFlagInfo.GetDefinition(flag), background, ContrastColor.ForBackground(background), flag));
         }
 
         return entries.AsReadOnly();

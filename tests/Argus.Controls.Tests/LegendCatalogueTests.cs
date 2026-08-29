@@ -60,6 +60,17 @@ public sealed class LegendCatalogueTests
     }
 
     [Fact]
+    public void BuildEntriesForegroundAlwaysContrastsItsOwnColour()
+    {
+        var entries = LegendCatalogue.BuildEntries(new ColorPolicy());
+
+        foreach (LegendEntry entry in entries)
+        {
+            Assert.Equal(ContrastColor.ForBackground(entry.Color), entry.Foreground);
+        }
+    }
+
+    [Fact]
     public void BuildEntriesThrowsForANullPolicy()
     {
         Assert.Throws<System.ArgumentNullException>(() => LegendCatalogue.BuildEntries(null!));

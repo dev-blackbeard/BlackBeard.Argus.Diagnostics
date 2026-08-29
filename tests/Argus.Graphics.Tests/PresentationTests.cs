@@ -15,6 +15,26 @@ public sealed class PresentationTests
     }
 
     [Fact]
+    public void ContrastColorPicksWhiteForABlackBackground()
+    {
+        Assert.Equal(Colors.White, ContrastColor.ForBackground(Colors.Black));
+    }
+
+    [Fact]
+    public void ContrastColorPicksBlackForAWhiteBackground()
+    {
+        Assert.Equal(Colors.Black, ContrastColor.ForBackground(Colors.White));
+    }
+
+    [Fact]
+    public void ContrastColorPicksBlackForAMidGreyBackground()
+    {
+        // Rec. 601 luma for an equal-channel grey is just that channel's value, so 0.6 sits
+        // clearly above the 0.5 threshold -- light enough that black should read better.
+        Assert.Equal(Colors.Black, ContrastColor.ForBackground(new Color(0.6f, 0.6f, 0.6f)));
+    }
+
+    [Fact]
     public void SeverityPrecedencePicksEncodingOverEverythingElse()
     {
         var policy = new ColorPolicy();

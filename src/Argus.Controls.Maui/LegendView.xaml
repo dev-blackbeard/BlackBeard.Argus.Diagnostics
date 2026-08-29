@@ -37,11 +37,18 @@
                             <TapGestureRecognizer Tapped="OnLegendEntryTapped" />
                         </Grid.GestureRecognizers>
 
+                        <!-- A health-state row (healthy / not evaluated) has no flag: a plain colour
+                             swatch. An alarm row's icon sits on its own small solid backing plate in
+                             the same Color instead of straight on the page background, and draws in
+                             Foreground rather than Color: otherwise it would be an icon drawn in the
+                             same colour as what's directly behind it. -->
                         <BoxView Grid.Column="0" WidthRequest="12" HeightRequest="12" Color="{Binding Color}"
                                  CornerRadius="2" VerticalOptions="Center" IsVisible="{Binding IsSwatchOnly}" />
-                        <GraphicsView Grid.Column="0" WidthRequest="16" HeightRequest="16" VerticalOptions="Center"
-                                      IsVisible="{Binding HasIcon}"
-                                      Drawable="{Binding ., Converter={StaticResource AlarmIconDrawableConverter}}" />
+                        <Border Grid.Column="0" WidthRequest="20" HeightRequest="20" Padding="2" StrokeThickness="0"
+                                BackgroundColor="{Binding Color}" VerticalOptions="Center" IsVisible="{Binding HasIcon}">
+                            <GraphicsView WidthRequest="16" HeightRequest="16"
+                                          Drawable="{Binding ., Converter={StaticResource AlarmIconDrawableConverter}}" />
+                        </Border>
 
                         <Label Grid.Column="1" Text="{Binding Title}" FontSize="12" LineBreakMode="TailTruncation"
                                VerticalOptions="Center" />
