@@ -29,7 +29,7 @@
 
                             <!-- The receipt indicator: a small, neutral dot that briefly appears on each
                                  new sample, then fades. Deliberately a separate visual channel from the
-                                 Border's severity-driven BackgroundColor above: this says "new data
+                                 Border's severity-driven Stroke colour above: this says "new data
                                  arrived", never "something is wrong", so it must never compete with a
                                  flagged row's colour for attention. -->
                             <BoxView Grid.Column="1" WidthRequest="8" HeightRequest="8" CornerRadius="4"
