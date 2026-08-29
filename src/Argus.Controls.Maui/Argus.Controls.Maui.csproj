@@ -2,19 +2,18 @@
 
   <PropertyGroup>
     <!--
-      v1 scope: Android and Windows only. iOS/MacCatalyst need a macOS build agent to compile at
-      all, and this repository's CI matrix (ubuntu-latest, windows-latest; see ci.yml) has none.
-      Recorded as a CLAUDE.md backlog item rather than silently limited; adding a TFM to an
-      already-multi-targeted library later is a small change, not a rearchitecture.
-    -->
-    <!--
-      net8.0-windows10.0.19041.0 cannot restore or build at all on a non-Windows OS (no Windows
-      SDK reference assemblies), so it is only ever in the list when actually running on Windows,
-      matching how the standard MAUI project templates handle this, and how this repository's own
-      CI matrix (ubuntu-latest, windows-latest) needs it split.
+      v1 scope: Android only. Windows (net8.0-windows10.0.19041.0) was attempted and reverted:
+      the WinUI XAML compiler (XamlCompiler.exe, from the WindowsAppSDK buildTransitive targets)
+      fails on EntityHealthCollectionView.xaml with MSB3073 exit code 1 and no further diagnostic
+      surfaced anywhere in CI's log capture. WindowsPackageType=None (tried first, see git history)
+      did not change the failure at all: same error, same line, so whatever that property
+      actually controls, it isn't this. Needs local repro with real MAUI tooling to get past "exit
+      code 1" to an actual cause; guessing further via CI rounds stopped being worth it. iOS/
+      MacCatalyst are separately blocked on this repo's CI having no macOS runner at all. Both
+      gaps are recorded in CLAUDE.md's backlog; see BlackBeard.Playbook's idiosyncrasies journal
+      for the full failure history before attempting Windows again.
     -->
     <TargetFrameworks>net8.0-android</TargetFrameworks>
-    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net8.0-windows10.0.19041.0</TargetFrameworks>
     <UseMaui>true</UseMaui>
 
     <!--
@@ -33,15 +32,6 @@
     <CheckEolTargetFramework>false</CheckEolTargetFramework>
     <NoWarn>$(NoWarn);NETSDK1202</NoWarn>
 
-    <!--
-      Without this, the WinUI XAML compiler (Microsoft.UI.Xaml.Markup.Compiler) treats this class
-      library like an app and fails compiling EntityHealthCollectionView.xaml (MSB3073,
-      XamlCompiler.exe exit code 1, no further detail surfaced in CI's log capture). Same property,
-      same reasoning as ArgusMonitorDemo.csproj's own: that one is an actual app and needs it for
-      a different reason (skipping MSIX Store packaging), but a class library needs it too, to
-      avoid the packaging-oriented XAML compilation path entirely.
-    -->
-    <WindowsPackageType Condition="$(TargetFramework.Contains('-windows'))">None</WindowsPackageType>
     <SingleProject>false</SingleProject>
     <RootNamespace>Argus.Controls.Maui</RootNamespace>
     <AssemblyName>Argus.Controls.Maui</AssemblyName>
@@ -56,10 +46,7 @@
     -->
     <InvariantGlobalization>false</InvariantGlobalization>
 
-    <!-- Windows-only TFM needs this even in a class library, same as an app project would set it. -->
-    <SupportedOSPlatformVersion Condition="$(TargetFramework.Contains('-windows'))">10.0.17763.0</SupportedOSPlatformVersion>
-    <TargetPlatformMinVersion Condition="$(TargetFramework.Contains('-windows'))">10.0.17763.0</TargetPlatformMinVersion>
-    <SupportedOSPlatformVersion Condition="$(TargetFramework.Contains('-android'))">21.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion>21.0</SupportedOSPlatformVersion>
   </PropertyGroup>
 
   <ItemGroup>
