@@ -11,20 +11,30 @@
         <ResourceDictionary>
             <local:StringNotNullOrEmptyConverter x:Key="StringNotNullOrEmptyConverter" />
             <local:ExpanderLabelConverter x:Key="ExpanderLabelConverter" />
-            <local:FlagCountConverter x:Key="FlagCountConverter" />
+            <local:AlarmIconDrawableConverter x:Key="AlarmIconDrawableConverter" />
         </ResourceDictionary>
     </ContentView.Resources>
 
     <CollectionView x:Name="ItemsView" SelectionMode="None">
         <CollectionView.ItemTemplate>
             <DataTemplate x:DataType="controls:EntityHealthItemViewModel">
-                <Border Margin="4" Padding="10" StrokeThickness="1" BackgroundColor="{Binding Color}">
+                <Border Margin="4" Padding="10" StrokeThickness="1" Stroke="{Binding Color}">
                     <VerticalStackLayout Spacing="4">
 
-                        <HorizontalStackLayout Spacing="8">
-                            <Label Text="{Binding EntityId}" FontAttributes="Bold" />
-                            <Label Text="{Binding GroupTag}" IsVisible="{Binding GroupTag, Converter={StaticResource StringNotNullOrEmptyConverter}}" Opacity="0.7" />
-                        </HorizontalStackLayout>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <HorizontalStackLayout Grid.Column="0" Spacing="8">
+                                <Label Text="{Binding EntityId}" FontAttributes="Bold" />
+                                <Label Text="{Binding GroupTag}" IsVisible="{Binding GroupTag, Converter={StaticResource StringNotNullOrEmptyConverter}}" Opacity="0.7" />
+                            </HorizontalStackLayout>
+
+                            <!-- The receipt indicator: a small, neutral dot that briefly appears on each
+                                 new sample, then fades. Deliberately a separate visual channel from the
+                                 Border's severity-driven Stroke colour above: this says "new data
+                                 arrived", never "something is wrong", so it must never compete with a
+                                 flagged row's colour for attention. -->
+                            <BoxView Grid.Column="1" WidthRequest="8" HeightRequest="8" CornerRadius="4"
+                                     Color="White" Opacity="{Binding ReceiptOpacity}" VerticalOptions="Center" />
+                        </Grid>
 
                         <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="12">
                             <Label Grid.Column="0" Text="{Binding LatestSample.Latitude, StringFormat='lat {0:F5}'}" />
@@ -54,11 +64,24 @@
                             </Grid>
                         </VerticalStackLayout>
 
-                        <FlexLayout BindableLayout.ItemsSource="{Binding FlagCounts}" Wrap="Wrap" Direction="Row">
+                        <!-- One chip per flag that has actually fired: an icon plus how many times. A flag
+                             with a zero count is never in AlarmChips to begin with (see its own remarks),
+                             so there is nothing here to hide: the chip simply does not exist yet.
+
+                             The pill's background is the chip's own solid Color (its category colour),
+                             not a semi-transparent overlay: a translucent pill's effective colour depends
+                             on whatever is behind it, which is exactly how contrast silently breaks. Icon
+                             and count both draw in Foreground, computed to read against that solid Color
+                             regardless of which category it is or which OS theme is active. -->
+                        <FlexLayout BindableLayout.ItemsSource="{Binding AlarmChips}" Wrap="Wrap" Direction="Row">
                             <BindableLayout.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Margin="2" Padding="6,2" StrokeThickness="0" BackgroundColor="#33000000">
-                                        <Label FontSize="11" Text="{Binding ., Converter={StaticResource FlagCountConverter}}" />
+                                <DataTemplate x:DataType="controls:AlarmChipViewModel">
+                                    <Border Margin="2" Padding="4,2" StrokeThickness="0" BackgroundColor="{Binding Color}">
+                                        <HorizontalStackLayout Spacing="3">
+                                            <GraphicsView WidthRequest="14" HeightRequest="14" VerticalOptions="Center"
+                                                          Drawable="{Binding ., Converter={StaticResource AlarmIconDrawableConverter}}" />
+                                            <Label FontSize="11" Text="{Binding Count}" TextColor="{Binding Foreground}" VerticalOptions="Center" />
+                                        </HorizontalStackLayout>
                                     </Border>
                                 </DataTemplate>
                             </BindableLayout.ItemTemplate>

@@ -23,6 +23,12 @@
 # resolve fails inside this repository rather than in a consumer's build three months from
 # now. That only works if the feed is filled first, which is what this does.
 #
+# Every run also purges the packages it just built out of NuGet's global cache for the exact
+# version being packed. That cache is identity-based (id + version) and never re-checks a package
+# it has already extracted, so re-packing the same "0.1.0-local" identity -- which this script
+# does by default, every time -- would otherwise leave a consumer's restore silently serving
+# whatever got extracted last time, with the new .nupkg sitting unused right next to it.
+#
 # Build order on a clean clone:
 #
 #   scripts/pack-local
@@ -54,7 +60,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     -h|--help)
-      sed -n '2,31p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      sed -n '2,37p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *)
@@ -106,6 +112,45 @@ for project in "${packable[@]}"; do
     -p:PackageOutputPath="$feed" \
     --nologo
 done
+
+# NuGet's global package cache extracts a package once per (id, version) and never re-checks it
+# against the feed afterward -- it treats that pair as immutable. This repo's whole local-feed
+# workflow packs the same version string ("0.1.0-local" by default) every time on purpose, so
+# every re-pack collides with whatever the cache already extracted for that identity: the feed's
+# .nupkg on disk is the new build, but a consumer's restore silently keeps serving the OLD
+# extracted content, with no error anywhere to say so. (This is exactly what happened in
+# dev-blackbeard/BlackBeard.Argus-lab#6: pack-local reported success and the new LegendView was
+# in the freshly-written .nupkg, but ArgusMonitorDemo's restore was still resolving a
+# pre-LegendView copy of BlackBeard.Argus.Controls.Maui out of the cache.)
+#
+# Fix: purge each package we just (re)packed from the global cache, for exactly this version, so
+# the next restore anywhere has no choice but to re-extract from the feed. Scoped to
+# (id, version) pairs this run actually touched -- never a blanket `nuget locals --clear`, which
+# would also evict every unrelated package's cache for no reason.
+nuget_cache_root="$(dotnet nuget locals global-packages --list 2>/dev/null | sed -n 's/^global-packages: *//p')" || true
+if [[ -n "$nuget_cache_root" ]]; then
+  echo ""
+  echo "pack-local: purging $version from the local NuGet cache for the package(s) just packed"
+  for project in "${packable[@]}"; do
+    package_id="$(grep -oE '<PackageId>[^<]+</PackageId>' "$project" | sed -E 's/<\/?PackageId>//g')" || true
+    if [[ -z "$package_id" ]]; then
+      echo "  ! couldn't read <PackageId> from ${project#"$repo_root"/}, skipping its cache purge" >&2
+      continue
+    fi
+
+    package_id_lower="$(printf '%s' "$package_id" | tr '[:upper:]' '[:lower:]')"
+    cached_path="$nuget_cache_root/$package_id_lower/$version"
+    if [[ -d "$cached_path" ]]; then
+      rm -rf "$cached_path"
+      echo "  - cleared $package_id_lower/$version"
+    fi
+  done
+else
+  echo "pack-local: warning: couldn't determine the NuGet global-packages cache path (dotnet nuget locals" >&2
+  echo "            global-packages --list gave no output) -- skipping the cache purge. If a consumer's" >&2
+  echo "            restore doesn't pick up this pack, clear it yourself: dotnet nuget locals" >&2
+  echo "            global-packages --clear" >&2
+fi
 
 echo ""
 echo "pack-local: feed contents"

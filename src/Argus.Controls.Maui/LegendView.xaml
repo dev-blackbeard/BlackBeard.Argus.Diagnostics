@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView
+    x:Class="Argus.Controls.Maui.LegendView"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Argus.Controls;assembly=Argus.Controls"
+    xmlns:local="clr-namespace:Argus.Controls.Maui"
+    x:Name="Root">
+
+    <ContentView.Resources>
+        <ResourceDictionary>
+            <local:AlarmIconDrawableConverter x:Key="AlarmIconDrawableConverter" />
+        </ResourceDictionary>
+    </ContentView.Resources>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- Neither arrow is a value-converter binding: CollectionView doesn't expose "am I
+             scrolled to the top/bottom" as a bindable property, only as arguments on its Scrolled
+             event, so OnItemsViewScrolled below sets these two directly. Hidden by default so a
+             legend short enough to need no scrolling shows neither. -->
+        <Label Grid.Row="0" x:Name="UpArrow" Text="▲ more above" HorizontalOptions="Center"
+               FontSize="11" Opacity="0.6" IsVisible="False" />
+
+        <CollectionView Grid.Row="1" x:Name="ItemsView" SelectionMode="None" Scrolled="OnItemsViewScrolled">
+            <CollectionView.ItemsLayout>
+                <GridItemsLayout Orientation="Vertical" Span="2" />
+            </CollectionView.ItemsLayout>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="controls:LegendEntry">
+                    <!-- Icon/swatch plus title only: a two-column grid has no room for the full
+                         one-line definition next to every entry. Tap an entry for that instead
+                         (OnLegendEntryTapped), which is also why the whole cell carries the gesture
+                         recognizer rather than just the label. -->
+                    <Grid Padding="4" ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnLegendEntryTapped" />
+                        </Grid.GestureRecognizers>
+
+                        <!-- A health-state row (healthy / not evaluated) has no flag: a plain colour
+                             swatch. An alarm row's icon sits on its own small solid backing plate in
+                             the same Color instead of straight on the page background, and draws in
+                             Foreground rather than Color: otherwise it would be an icon drawn in the
+                             same colour as what's directly behind it. -->
+                        <BoxView Grid.Column="0" WidthRequest="12" HeightRequest="12" Color="{Binding Color}"
+                                 CornerRadius="2" VerticalOptions="Center" IsVisible="{Binding IsSwatchOnly}" />
+                        <Border Grid.Column="0" WidthRequest="20" HeightRequest="20" Padding="2" StrokeThickness="0"
+                                BackgroundColor="{Binding Color}" VerticalOptions="Center" IsVisible="{Binding HasIcon}">
+                            <GraphicsView WidthRequest="16" HeightRequest="16"
+                                          Drawable="{Binding ., Converter={StaticResource AlarmIconDrawableConverter}}" />
+                        </Border>
+
+                        <Label Grid.Column="1" Text="{Binding Title}" FontSize="12" LineBreakMode="TailTruncation"
+                               VerticalOptions="Center" />
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <Label Grid.Row="2" x:Name="DownArrow" Text="▼ more below" HorizontalOptions="Center"
+               FontSize="11" Opacity="0.6" IsVisible="False" />
+
+    </Grid>
+
+</ContentView>

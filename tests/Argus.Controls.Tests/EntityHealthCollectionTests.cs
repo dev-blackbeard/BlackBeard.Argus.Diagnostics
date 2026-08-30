@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using Argus.Contracts;
 using Argus.Controls;
 using Argus.Graphics;
@@ -122,6 +123,103 @@ public sealed class EntityHealthCollectionTests
 
         item.ToggleExpandedCommand.Execute(null);
         Assert.False(item.IsExpanded);
+    }
+
+    [Fact]
+    public void ObserveSetsReceiptOpacityToThePulsesPeak()
+    {
+        var collection = new EntityHealthCollection { Receipt = new ReceiptPulse { PeakOpacity = 0.6 } };
+
+        collection.Observe(HealthyReport("entity-1"));
+
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? item);
+        Assert.Equal(0.6, item!.ReceiptOpacity);
+    }
+
+    [Fact]
+    public void RenderTickFadesReceiptOpacityForARowThatHasNotBeenObservedAgain()
+    {
+        var collection = new EntityHealthCollection { Receipt = new ReceiptPulse { FadeRenders = 4, PeakOpacity = 0.8 } };
+        collection.Observe(HealthyReport("entity-1"));
+
+        collection.RenderTick();
+        collection.RenderTick();
+
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? item);
+        Assert.Equal(0.4, item!.ReceiptOpacity);
+    }
+
+    [Fact]
+    public void ObserveResetsReceiptOpacityToThePeakEvenAfterItHasFaded()
+    {
+        var collection = new EntityHealthCollection { Receipt = new ReceiptPulse { FadeRenders = 2, PeakOpacity = 0.6 } };
+        collection.Observe(HealthyReport("entity-1"));
+
+        collection.RenderTick();
+        collection.RenderTick();
+        collection.RenderTick();
+
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? faded);
+        Assert.Equal(0.0, faded!.ReceiptOpacity);
+
+        collection.Observe(HealthyReport("entity-1"));
+
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? refreshed);
+        Assert.Equal(0.6, refreshed!.ReceiptOpacity);
+    }
+
+    [Fact]
+    public void AlarmChipsContainsOneEntryPerRaisedFlagWithItsCount()
+    {
+        var collection = new EntityHealthCollection();
+
+        collection.Observe(FlaggedReport("entity-1", HealthFlags.Teleport));
+        collection.Observe(FlaggedReport("entity-1", HealthFlags.Teleport));
+        collection.Observe(FlaggedReport("entity-1", HealthFlags.GroupOutlier));
+
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? item);
+
+        Assert.Equal(2, item!.AlarmChips.Count);
+        AlarmChipViewModel teleportChip = item.AlarmChips.Single(c => c.Flag == HealthFlags.Teleport);
+        AlarmChipViewModel outlierChip = item.AlarmChips.Single(c => c.Flag == HealthFlags.GroupOutlier);
+        Assert.Equal(2L, teleportChip.Count);
+        Assert.Equal(1L, outlierChip.Count);
+    }
+
+    [Fact]
+    public void AlarmChipsNeverContainsAFlagThatHasNotFired()
+    {
+        var collection = new EntityHealthCollection();
+        collection.Observe(HealthyReport("entity-1"));
+
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? item);
+
+        Assert.Empty(item!.AlarmChips);
+    }
+
+    [Fact]
+    public void AlarmChipsResolveTheirColourThroughTheConfiguredPolicy()
+    {
+        var colors = new ColorPolicy();
+        var collection = new EntityHealthCollection(colors);
+        collection.Observe(FlaggedReport("entity-1", HealthFlags.Teleport));
+
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? item);
+
+        Assert.Equal(colors.GetColorForFlag(HealthFlags.Teleport), item!.AlarmChips.Single().Color);
+    }
+
+    [Fact]
+    public void AlarmChipsForegroundAlwaysContrastsItsOwnColour()
+    {
+        var colors = new ColorPolicy();
+        var collection = new EntityHealthCollection(colors);
+        collection.Observe(FlaggedReport("entity-1", HealthFlags.Teleport));
+
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? item);
+        AlarmChipViewModel chip = item!.AlarmChips.Single();
+
+        Assert.Equal(ContrastColor.ForBackground(chip.Color), chip.Foreground);
     }
 
     [Fact]

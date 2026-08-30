@@ -52,6 +52,12 @@ public sealed class EntityHealthCollection
     /// <summary>How reports become colours. Mutate before observations are in flight, not during.</summary>
     public ColorPolicy Colors { get; }
 
+    /// <summary>
+    /// How a row's just-arrived receipt indicator fades after each <see cref="Observe"/> call.
+    /// Mutate before observations are in flight, not during.
+    /// </summary>
+    public ReceiptPulse Receipt { get; set; } = new ReceiptPulse();
+
     /// <summary>Records one observed report, creating or updating the row for its key.</summary>
     /// <param name="report">The report from <c>IEntityStreamMonitor.Observe</c>.</param>
     /// <param name="sample">
@@ -83,12 +89,16 @@ public sealed class EntityHealthCollection
         }
 
         item.Apply(report, sample);
+        item.RefreshAlarmChips(Colors);
         item.Color = Colors.Resolve(report, _renderCount);
+        item.LastUpdatedRenderCount = _renderCount;
+        item.ReceiptOpacity = Receipt.Resolve(0);
     }
 
     /// <summary>
-    /// Advances the render counter and re-resolves every row's colour, so a configured
-    /// <see cref="FlashCadence"/> animates. Call this on a timer from the UI thread.
+    /// Advances the render counter and re-resolves every row's colour and receipt opacity, so a
+    /// configured <see cref="FlashCadence"/> and <see cref="Receipt"/> both animate. Call this on
+    /// a timer from the UI thread.
     /// </summary>
     public void RenderTick()
     {
@@ -101,6 +111,8 @@ public sealed class EntityHealthCollection
             {
                 item.Color = Colors.Resolve(report, _renderCount);
             }
+
+            item.ReceiptOpacity = Receipt.Resolve(_renderCount - item.LastUpdatedRenderCount);
         }
     }
 

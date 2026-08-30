@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using Argus.Contracts;
+using Argus.Graphics;
 using Microsoft.Maui.Graphics;
 
 namespace Argus.Controls;
@@ -24,7 +25,9 @@ public sealed class EntityHealthItemViewModel : INotifyPropertyChanged
     private EntityHealthReport? _report;
     private EntitySample? _sample;
     private Color _color = Colors.Transparent;
+    private double _receiptOpacity;
     private bool _isExpanded;
+    private IReadOnlyList<AlarmChipViewModel> _alarmChips = new List<AlarmChipViewModel>(0).AsReadOnly();
 
     internal EntityHealthItemViewModel(EntityKey key)
     {
@@ -70,12 +73,43 @@ public sealed class EntityHealthItemViewModel : INotifyPropertyChanged
         get { return _flagCounts; }
     }
 
+    /// <summary>
+    /// <see cref="FlagCounts"/>, as ready-to-render chips: one per flag that has fired at least
+    /// once, each already carrying its own resolved colour. Never contains a zero-count entry —
+    /// a flag only appears here once <see cref="Apply"/> has actually raised it, the same
+    /// invariant <see cref="FlagCounts"/> itself holds.
+    /// </summary>
+    public IReadOnlyList<AlarmChipViewModel> AlarmChips
+    {
+        get { return _alarmChips; }
+        private set { SetField(ref _alarmChips, value); }
+    }
+
     /// <summary>The colour currently resolved for this row, including any flash cadence applied.</summary>
     public Color Color
     {
         get { return _color; }
         internal set { SetField(ref _color, value); }
     }
+
+    /// <summary>
+    /// A brief, low-emphasis pulse driven by <see cref="EntityHealthCollection"/>'s configured
+    /// <see cref="Argus.Graphics.ReceiptPulse"/>, fading from its peak toward zero after each
+    /// observed report. Distinct from <see cref="Color"/>: this says "new data arrived", not
+    /// "something is wrong" — bind a separate, subtler visual element to it than the one bound to
+    /// <see cref="Color"/>.
+    /// </summary>
+    public double ReceiptOpacity
+    {
+        get { return _receiptOpacity; }
+        internal set { SetField(ref _receiptOpacity, value); }
+    }
+
+    /// <summary>
+    /// The host collection's render count at the point this row was last <see cref="Apply"/>-ed.
+    /// Presentation bookkeeping for <see cref="ReceiptOpacity"/>'s fade, not meant for a binding.
+    /// </summary>
+    internal long LastUpdatedRenderCount { get; set; }
 
     /// <summary>Whether the row's "more" section — the remaining 6DOF fields — is expanded.</summary>
     public bool IsExpanded
@@ -99,6 +133,20 @@ public sealed class EntityHealthItemViewModel : INotifyPropertyChanged
         LatestReport = report;
         LatestSample = sample;
         OnPropertyChanged(nameof(FlagCounts));
+    }
+
+    /// <summary>Rebuilds <see cref="AlarmChips"/> from the current <see cref="FlagCounts"/>.</summary>
+    /// <param name="colors">The policy to resolve each chip's colour from.</param>
+    internal void RefreshAlarmChips(ColorPolicy colors)
+    {
+        var chips = new List<AlarmChipViewModel>(_flagCounts.Count);
+        foreach (KeyValuePair<HealthFlags, long> pair in _flagCounts)
+        {
+            Color background = colors.GetColorForFlag(pair.Key);
+            chips.Add(new AlarmChipViewModel(pair.Key, pair.Value, background, ContrastColor.ForBackground(background)));
+        }
+
+        AlarmChips = chips.AsReadOnly();
     }
 
     private void SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)

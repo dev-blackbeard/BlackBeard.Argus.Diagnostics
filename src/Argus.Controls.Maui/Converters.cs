@@ -1,8 +1,8 @@
 using System;
-using System.Collections.Generic;
 using System.Globalization;
-using Argus.Contracts;
+using Argus.Controls;
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Graphics;
 
 namespace Argus.Controls.Maui;
 
@@ -35,17 +35,30 @@ internal sealed class ExpanderLabelConverter : IValueConverter
     }
 }
 
-/// <summary>Converts one <see cref="EntityHealthItemViewModel.FlagCounts"/> entry to a display string.</summary>
-internal sealed class FlagCountConverter : IValueConverter
+/// <summary>
+/// Converts an <see cref="AlarmChipViewModel"/> or a <see cref="LegendEntry"/> to the
+/// <see cref="IDrawable"/> a <c>GraphicsView</c> renders its icon with.
+/// </summary>
+/// <remarks>
+/// Draws in each source's <c>Foreground</c>, not its <c>Color</c>: <c>Color</c> is now the solid
+/// backing plate behind the icon (the chip's pill, the legend row's swatch), so drawing the icon
+/// in that same colour again would make it disappear into its own background.
+/// </remarks>
+internal sealed class AlarmIconDrawableConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is KeyValuePair<HealthFlags, long> pair)
+        if (value is AlarmChipViewModel chip)
         {
-            return pair.Key.ToString() + " ×" + pair.Value.ToString(CultureInfo.InvariantCulture);
+            return new AlarmIconDrawable(chip.Flag, chip.Foreground);
         }
 
-        return string.Empty;
+        if (value is LegendEntry entry && entry.Flag.HasValue)
+        {
+            return new AlarmIconDrawable(entry.Flag.Value, entry.Foreground);
+        }
+
+        return null;
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
