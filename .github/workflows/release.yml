@@ -66,7 +66,7 @@ jobs:
 
       # Trusted Publishing: exchanges this run's GitHub OIDC token for a short-lived
       # (1-hour) nuget.org API key, matched against a policy configured on nuget.org
-      # (owner, repo, workflow file, environment). No long-lived secret stored here.
+      # (owner, repo, workflow file, environment). No long-lived credential stored here.
       - name: NuGet login (OIDC -> short-lived key)
         id: login
         uses: NuGet/login@v1
