@@ -83,6 +83,7 @@
     <Company></Company>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
     <PackageTags>diagnostics;geospatial;telemetry;stream;validation</PackageTags>
     <Copyright>Copyright the Argus contributors</Copyright>
     <RepositoryType>git</RepositoryType>
@@ -103,6 +104,7 @@
 
   <ItemGroup Condition="'$(IsPackable)' == 'true'">
     <None Include="$(ArgusRepoRoot)README.md" Pack="true" PackagePath="\" Visible="false" />
+    <None Include="$(ArgusRepoRoot)icon.png" Pack="true" PackagePath="\" Visible="false" />
   </ItemGroup>
 
 </Project>
