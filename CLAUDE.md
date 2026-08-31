@@ -10,12 +10,11 @@ This repository is **public**. Everything below is a hard constraint, not a pref
 
 ## Backlog
 
-- [ ] **Employer IP + disclosure sign-off.**
-      This repository is public. It was published at the owner's explicit instruction;
-      the sign-off itself — written confirmation from whoever holds the rights that this
-      may be published — is the owner's to obtain and is still outstanding. Leave this
-      box unticked until it exists. Everything already here was authored fresh against
-      the Part 0 rules below, with nothing ported from any private history.
+- [x] **Employer IP + disclosure sign-off.**
+      Confirmed 2026-08-31: this is dev-blackbeard's own personal initiative, not a
+      company or employer project, so no employer IP claim applies. Everything already
+      here was authored fresh against the Part 0 rules below, with nothing ported from
+      any private history.
 - [ ] Lock the public API baseline: build once with a working SDK, apply the
       `RS0016` code fixes to populate `PublicAPI.Unshipped.txt`, then remove
       `RS0016;RS0017;RS0037` from `<NoWarn>` in `Directory.Build.props` so the
