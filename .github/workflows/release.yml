@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write   # required for NuGet Trusted Publishing's OIDC token exchange
 
 env:
   DOTNET_NOLOGO: true
@@ -63,11 +64,18 @@ jobs:
       - name: Verify the packages before publishing
         run: dotnet test tests/Argus.Package.Tests/Argus.Package.Tests.csproj --configuration Release -p:ArgusPackageVersion="${{ steps.version.outputs.value }}"
 
+      # Trusted Publishing: exchanges this run's GitHub OIDC token for a short-lived
+      # (1-hour) nuget.org API key, matched against a policy configured on nuget.org
+      # (owner, repo, workflow file, environment). No long-lived secret stored here.
+      - name: NuGet login (OIDC -> short-lived key)
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: blackbeard
+
       - name: Push
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
           dotnet nuget push "artifacts/local-feed/*.nupkg" \
-            --api-key "$NUGET_API_KEY" \
+            --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \
             --source https://api.nuget.org/v3/index.json \
             --skip-duplicate
