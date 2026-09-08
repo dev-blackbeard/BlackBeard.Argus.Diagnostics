@@ -30,16 +30,30 @@ This repository is **public**. Everything below is a hard constraint, not a pref
 - [ ] Add `net8.0-ios`/`net8.0-maccatalyst` to `Argus.Controls.Maui` once a macOS
       build agent is available. CI (`ubuntu-latest`/`windows-latest`) cannot build
       either TFM today — there is no Windows or Linux path to the iOS/MacCatalyst SDKs.
-- [ ] Get `net8.0-windows10.0.19041.0` building for `Argus.Controls.Maui`. Attempted
-      and reverted: the WinUI XAML compiler (`XamlCompiler.exe`, from the
+- [ ] Get `net8.0-windows10.0.19041.0` building for `Argus.Controls.Maui`. Attempt 1
+      was reverted: the WinUI XAML compiler (`XamlCompiler.exe`, from the
       WindowsAppSDK `buildTransitive` targets) fails on `EntityHealthCollectionView.xaml`
       with `MSB3073` (exit code 1) and surfaces no further diagnostic anywhere in CI's
       log capture. `WindowsPackageType=None` was tried first on the theory that the
       compiler was treating the class library as a packaged app; it changed nothing —
-      identical error, identical line. Needs a local repro with the real MAUI/WinUI
-      tooling installed to get past "exit code 1" to an actual cause; six CI rounds of
-      guessing stopped being worth it. Full failure history:
+      identical error, identical line. Full failure history:
       `BlackBeard.Playbook`'s idiosyncrasies journal, §3.2.
+      Attempt 2 (current, driven by a consumer pinning `Microsoft.Maui.Controls`/
+      `.Compatibility` 8.0.70): re-added the TFM conditioned on
+      `$([MSBuild]::IsOSPlatform('windows'))`, aligned the central package versions to
+      8.0.70 to avoid an `NU1605` downgrade against that consumer, and added
+      `<Page Remove>` for both `.xaml` files on the theory that a Windows TFM makes
+      default item globbing double-claim them as `Page` (WinUI's own build action)
+      alongside `MauiXaml`, so the raw WinUI compiler ends up trying to parse a
+      MAUI-namespaced file. **Not yet verified** — authored in an environment with no
+      Windows/WinUI toolchain to build against. CI now installs `maui-windows` on the
+      `windows-latest` leg too, so a PR against this branch will give a real signal.
+      If `MSB3073` recurs, run `dotnet build -bl` locally and read the binlog (MSBuild
+      Structured Log Viewer) for what actually invoked `XamlCompiler.exe` — CI's log
+      capture didn't show that in attempt 1, which is why it stalled at "exit code 1"
+      with no further lead. Needs a local repro with the real MAUI/WinUI tooling
+      installed either way; six CI rounds of guessing in attempt 1 already proved that
+      guessing blind isn't worth repeating.
       (Resolved by the same CI runs, so no longer open: whether `UseMaui=true`
       produces an explicit `Microsoft.Maui.Controls` `PackageReference` item —
       confirmed yes, since `ArgusGuardUiDependencies`' `PackageReference`-based scan
@@ -137,10 +151,12 @@ make this repository un-buildable on its own for anyone who clones only this hal
    "we'll revisit the interface later" is a deliberate act, not drift.
 9. `Argus.Core` and `Argus.Testing` multi-target `netstandard2.0;net8.0`.
    `Argus.Graphics` and `Argus.Controls` target `netstandard2.0`. `Argus.Controls.Maui`
-   is the one exception: `net8.0-android` only for now, because `Microsoft.Maui.Controls`
-   cannot target netstandard2.0 at all. `net8.0-windows10.0.19041.0` was attempted and
-   reverted — the WinUI XAML compiler fails on it with no diagnosable cause from CI alone
-   (see backlog); `net8.0-ios`/`net8.0-maccatalyst` are separately blocked on this
+   is the one exception: `net8.0-android` always, plus `net8.0-windows10.0.19041.0` when
+   building on Windows (`Condition="$([MSBuild]::IsOSPlatform('windows'))"`), because
+   `Microsoft.Maui.Controls` cannot target netstandard2.0 at all. The Windows leg is a
+   second attempt, unverified as of this writing — see the backlog entry for attempt 1's
+   failure (WinUI XAML compiler, no diagnosable cause from CI alone) and attempt 2's
+   hypothesis; `net8.0-ios`/`net8.0-maccatalyst` are separately blocked on this
    repository's CI having no macOS runner.
 10. Deterministic builds, SourceLink, symbol packages, central package management.
 
@@ -218,7 +234,8 @@ Each has a named regression test. Do not regress them.
 src/Argus.Core         packed, zero dependencies, netstandard2.0;net8.0
 src/Argus.Graphics     packed, Core + Microsoft.Maui.Graphics, netstandard2.0
 src/Argus.Controls     packed, Core + Graphics, netstandard2.0, no Microsoft.Maui.Controls
-src/Argus.Controls.Maui packed, Controls + Microsoft.Maui.Controls, net8.0-android only (see backlog)
+src/Argus.Controls.Maui packed, Controls + Microsoft.Maui.Controls, net8.0-android always,
+                        net8.0-windows10.0.19041.0 when built on Windows (see backlog)
 src/Argus.Testing      packed, corruption-injection harness, netstandard2.0;net8.0
 src/Argus.Cli          not packed, replays a capture to JSONL/CSV findings
 samples/               PackageReference, never ProjectReference

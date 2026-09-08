@@ -45,12 +45,21 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      # Argus.Controls.Maui targets net8.0-android only for now -- Windows was attempted and
-      # reverted (WinUI XamlCompiler.exe fails opaquely; see CLAUDE.md's backlog and
-      # BlackBeard.Playbook's idiosyncrasies journal), and iOS/MacCatalyst need a macOS runner
-      # this matrix doesn't have. android-only still needs the workload on both OSes.
+      # Argus.Controls.Maui targets net8.0-android everywhere, plus net8.0-windows10.0.19041.0
+      # when building on Windows (see its csproj -- attempt 2 at the Windows leg, previously
+      # reverted; MSB3073 from WinUI's XamlCompiler.exe, see CLAUDE.md's backlog and
+      # BlackBeard.Playbook's idiosyncrasies journal). iOS/MacCatalyst need a macOS runner this
+      # matrix doesn't have. android-only still needs the workload on both OSes.
       - name: Install the MAUI workload
         run: dotnet workload install maui-android
+
+      # Only the windows-latest leg's TargetFrameworks conditional pulls in net8.0-windows10.0.19041.0
+      # (Argus.Controls.Maui.csproj: Condition="$([MSBuild]::IsOSPlatform('windows'))"), so this
+      # is scoped the same way -- installing it on ubuntu-latest would be wasted time for a
+      # workload nothing there ever targets.
+      - name: Install the MAUI Windows workload
+        if: matrix.os == 'windows-latest'
+        run: dotnet workload install maui-windows
 
       - name: Restore tool dependencies
         run: dotnet restore src/Argus.Core/Argus.Core.csproj

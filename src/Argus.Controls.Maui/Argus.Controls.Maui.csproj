@@ -2,18 +2,27 @@
 
   <PropertyGroup>
     <!--
-      v1 scope: Android only. Windows (net8.0-windows10.0.19041.0) was attempted and reverted:
-      the WinUI XAML compiler (XamlCompiler.exe, from the WindowsAppSDK buildTransitive targets)
-      fails on EntityHealthCollectionView.xaml with MSB3073 exit code 1 and no further diagnostic
-      surfaced anywhere in CI's log capture. WindowsPackageType=None (tried first, see git history)
-      did not change the failure at all: same error, same line, so whatever that property
-      actually controls, it isn't this. Needs local repro with real MAUI tooling to get past "exit
-      code 1" to an actual cause; guessing further via CI rounds stopped being worth it. iOS/
-      MacCatalyst are separately blocked on this repo's CI having no macOS runner at all. Both
-      gaps are recorded in CLAUDE.md's backlog; see BlackBeard.Playbook's idiosyncrasies journal
-      for the full failure history before attempting Windows again.
+      Windows leg (net8.0-windows10.0.19041.0), attempt 2. Attempt 1 (see CLAUDE.md's backlog and
+      BlackBeard.Playbook's idiosyncrasies journal, §3.2) failed with MSB3073, exit code 1, with no
+      further diagnostic anywhere in CI's log capture, from XamlCompiler.exe, the raw WinUI3
+      compiler, against EntityHealthCollectionView.xaml. WindowsPackageType=None changed nothing.
+
+      This attempt's hypothesis, NOT YET VERIFIED against a real Windows/WinUI toolchain (this
+      change was authored in a Linux-only environment that cannot build this TFM at all): adding
+      a Windows TFM makes the SDK's default item globbing also claim these .xaml files as Page
+      items, the native WinUI build action, alongside MauiXaml. XamlCompiler.exe then tries to
+      parse a file whose root xmlns is MAUI's (schemas.microsoft.com/dotnet/2021/maui),
+      not WinUI's, and fails opaquely rather than reporting "wrong namespace". See the <Page
+      Remove> items below, which is the actual attempted fix. If MSB3073 recurs, run
+      `dotnet build -bl` locally and inspect the binlog (MSBuild Structured Log Viewer) for what
+      actually invoked XamlCompiler.exe and with what arguments; CI's log capture did not show
+      that last time, which is why attempt 1 stalled at "exit code 1" with no further lead.
+
+      iOS/MacCatalyst are separately blocked on this repo's CI having no macOS runner at all;
+      unaffected by this change.
     -->
     <TargetFrameworks>net8.0-android</TargetFrameworks>
+    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net8.0-windows10.0.19041.0</TargetFrameworks>
     <UseMaui>true</UseMaui>
 
     <!--
@@ -46,7 +55,8 @@
     -->
     <InvariantGlobalization>false</InvariantGlobalization>
 
-    <SupportedOSPlatformVersion>21.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$(TargetFramework.Contains('-android'))">21.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$(TargetFramework.Contains('-windows'))">10.0.17763.0</SupportedOSPlatformVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -72,6 +82,16 @@
     <MauiXaml Update="LegendView.xaml">
       <Generator>MSBuild:Compile</Generator>
     </MauiXaml>
+
+    <!--
+      Attempt 2's hypothesis (see the PropertyGroup comment above): on a Windows TFM these two
+      files could also be getting claimed as Page items, WinUI's own build action, by default
+      globbing, in addition to MauiXaml above, and it's the raw WinUI XamlCompiler.exe choking on
+      MAUI-namespaced XAML that produces MSB3073. Excluding them from Page is a no-op on Android
+      (that item group is meaningless there) and cheap to keep unconditionally.
+    -->
+    <Page Remove="EntityHealthCollectionView.xaml" />
+    <Page Remove="LegendView.xaml" />
   </ItemGroup>
 
   <ItemGroup>

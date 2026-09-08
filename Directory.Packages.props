@@ -18,15 +18,23 @@
     -->
     <PackageVersion Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="4.14.0" />
 
-    <!-- Rule 3. The standalone netstandard2.0 graphics primitives, NOT Microsoft.Maui.Controls. -->
-    <PackageVersion Include="Microsoft.Maui.Graphics" Version="8.0.100" />
+    <!--
+      Rule 3. The standalone netstandard2.0 graphics primitives, NOT Microsoft.Maui.Controls.
+      Pinned to 8.0.70, matching Microsoft.Maui.Controls below: a consumer app that itself pins
+      Microsoft.Maui.Controls to 8.0.70 (as ArgusMonitorDemo-shaped apps do) would otherwise hit
+      NU1605 (package downgrade) the moment its direct 8.0.70 reference meets this package's
+      transitive dependency on a newer line. NOT verified against nuget.org from this environment
+      (no outbound network access here): confirm 8.0.70 actually exists for both packages on
+      first restore; if it doesn't, use the nearest 8.0.7x patch both packages actually shipped.
+    -->
+    <PackageVersion Include="Microsoft.Maui.Graphics" Version="8.0.70" />
 
     <!--
       Rule 3, as amended: the one dependency Argus.Controls.Maui is permitted to carry, and the
       one project ArgusGuardUiDependencies (Directory.Build.targets) permits it in. Same MAUI
       release train as Microsoft.Maui.Graphics above, so the two stay in lockstep.
     -->
-    <PackageVersion Include="Microsoft.Maui.Controls" Version="8.0.100" />
+    <PackageVersion Include="Microsoft.Maui.Controls" Version="8.0.70" />
   </ItemGroup>
 
   <ItemGroup Label="Test">
