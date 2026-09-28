@@ -2,18 +2,14 @@
 
   <PropertyGroup>
     <!--
-      v1 scope: Android only. Windows (net8.0-windows10.0.19041.0) was attempted and reverted:
-      the WinUI XAML compiler (XamlCompiler.exe, from the WindowsAppSDK buildTransitive targets)
-      fails on EntityHealthCollectionView.xaml with MSB3073 exit code 1 and no further diagnostic
-      surfaced anywhere in CI's log capture. WindowsPackageType=None (tried first, see git history)
-      did not change the failure at all: same error, same line, so whatever that property
-      actually controls, it isn't this. Needs local repro with real MAUI tooling to get past "exit
-      code 1" to an actual cause; guessing further via CI rounds stopped being worth it. iOS/
-      MacCatalyst are separately blocked on this repo's CI having no macOS runner at all. Both
-      gaps are recorded in CLAUDE.md's backlog; see BlackBeard.Playbook's idiosyncrasies journal
-      for the full failure history before attempting Windows again.
+      Android everywhere; Windows added only where it can build. The v1 Windows attempt failed
+      on an opaque MSB3073 from the WinUI XamlCompiler.exe; the cause and fix are under
+      EnableDefaultPageItems below. iOS/MacCatalyst are blocked on this repo's CI having no
+      macOS runner (CLAUDE.md backlog).
     -->
     <TargetFrameworks>net8.0-android</TargetFrameworks>
+    <!-- Windows only where it can build (journal §3.3): there is no Windows SDK on Linux/macOS. -->
+    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net8.0-windows10.0.19041.0</TargetFrameworks>
     <UseMaui>true</UseMaui>
 
     <!--
@@ -33,6 +29,17 @@
     <NoWarn>$(NoWarn);NETSDK1202</NoWarn>
 
     <SingleProject>false</SingleProject>
+
+    <!--
+      The cause of the Windows MSB3073 (found from XamlCompiler's input.json, printed by CI):
+      the SDK's default Page glob handed EntityHealthCollectionView.xaml and LegendView.xaml to
+      the WinUI XAML compiler as WinUI pages. They are MAUI XAML, compiled by MAUI's own
+      MauiXaml pipeline, and XamlCompiler.exe dies on them without writing output.json.
+      MAUI normally turns that glob off, but only in its single-project path, which
+      SingleProject=false above opts out of; so it is turned off here, and any Page item
+      removed in case another import adds one.
+    -->
+    <EnableDefaultPageItems>false</EnableDefaultPageItems>
     <RootNamespace>Argus.Controls.Maui</RootNamespace>
     <AssemblyName>Argus.Controls.Maui</AssemblyName>
     <IsPackable>true</IsPackable>
@@ -46,7 +53,9 @@
     -->
     <InvariantGlobalization>false</InvariantGlobalization>
 
-    <SupportedOSPlatformVersion>21.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
+    <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -63,6 +72,10 @@
     -->
     <PackageReference Include="Microsoft.Maui.Controls" />
     <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Remove="**/*.xaml" />
   </ItemGroup>
 
   <ItemGroup>
