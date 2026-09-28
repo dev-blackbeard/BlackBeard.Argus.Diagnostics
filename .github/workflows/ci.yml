@@ -68,8 +68,11 @@ jobs:
       - name: Test
         run: dotnet test Argus.sln --configuration Release --no-build --logger "trx;LogFileName=results.trx"
 
+      # Diagnostic only: the tests above already passed or failed the job. Without this, an
+      # exhausted account-wide artifact storage quota fails a green build.
       - name: Upload test results
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: test-results-${{ matrix.os }}
@@ -94,7 +97,10 @@ jobs:
         shell: bash
         run: scripts/pack-local --configuration Release --clean
 
+      # The pack step above is the check; the upload is a convenience copy (release.yml packs
+      # its own), so a full artifact storage quota must not fail it.
       - name: Upload packages
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: packages
