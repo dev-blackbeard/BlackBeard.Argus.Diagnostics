@@ -140,13 +140,24 @@ public static class HealthFlagInfo
     /// <summary>Enumerates the individual set bits of a flag combination, in declaration order.</summary>
     /// <param name="flags">A flag combination.</param>
     /// <returns>The single-bit flags that are set.</returns>
+    /// <remarks>
+    /// Allocates nothing when <paramref name="flags"/> is <see cref="HealthFlags.None"/>, which is
+    /// the common case on a hot path. A caller running per sample that needs no allocation at all
+    /// can index <see cref="All"/> directly instead.
+    /// </remarks>
     public static IEnumerable<HealthFlags> Split(HealthFlags flags)
     {
-        foreach (HealthFlags candidate in All)
+        return flags == HealthFlags.None ? Array.Empty<HealthFlags>() : SplitSetBits(flags);
+    }
+
+    private static IEnumerable<HealthFlags> SplitSetBits(HealthFlags flags)
+    {
+        IReadOnlyList<HealthFlags> all = All;
+        for (int i = 0; i < all.Count; i++)
         {
-            if ((flags & candidate) != HealthFlags.None)
+            if ((flags & all[i]) != HealthFlags.None)
             {
-                yield return candidate;
+                yield return all[i];
             }
         }
     }

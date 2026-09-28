@@ -263,7 +263,19 @@ public sealed class GroupTickContext
         DateTime tickTimeUtc,
         bool treatZeroIslandAsInvalid = true)
     {
-        var builder = new GroupTickContextBuilder(tickTimeUtc, treatZeroIslandAsInvalid);
+        // Sized up front when the count is known: growing the list and dictionary one doubling at
+        // a time allocates roughly as much again in discarded storage, on every rebuild.
+        int capacity = 0;
+        if (samples is ICollection<EntitySample> collection)
+        {
+            capacity = collection.Count;
+        }
+        else if (samples is IReadOnlyCollection<EntitySample> readOnlyCollection)
+        {
+            capacity = readOnlyCollection.Count;
+        }
+
+        var builder = new GroupTickContextBuilder(tickTimeUtc, treatZeroIslandAsInvalid, capacity);
         if (samples != null)
         {
             foreach (EntitySample sample in samples)
@@ -286,8 +298,8 @@ public sealed class GroupTickContext
 /// </remarks>
 public sealed class GroupTickContextBuilder
 {
-    private readonly List<GroupContribution> _contributions = new List<GroupContribution>();
-    private readonly Dictionary<string, GroupContribution> _byEntity = new Dictionary<string, GroupContribution>(StringComparer.Ordinal);
+    private readonly List<GroupContribution> _contributions;
+    private readonly Dictionary<string, GroupContribution> _byEntity;
     private readonly DateTime _tickTimeUtc;
     private readonly bool _treatZeroIslandAsInvalid;
 
@@ -301,7 +313,26 @@ public sealed class GroupTickContextBuilder
     /// <param name="tickTimeUtc">The time to stamp the tick with.</param>
     /// <param name="treatZeroIslandAsInvalid">Whether an exact <c>(0, 0)</c> position should be excluded.</param>
     public GroupTickContextBuilder(DateTime tickTimeUtc, bool treatZeroIslandAsInvalid = true)
+        : this(tickTimeUtc, treatZeroIslandAsInvalid, 0)
     {
+    }
+
+    /// <summary>Creates a builder sized for an expected number of entities.</summary>
+    /// <param name="tickTimeUtc">The time to stamp the tick with.</param>
+    /// <param name="treatZeroIslandAsInvalid">Whether an exact <c>(0, 0)</c> position should be excluded.</param>
+    /// <param name="expectedCount">
+    /// How many entities are likely to be offered. Only a sizing hint: offering more still works.
+    /// Negative values are treated as zero.
+    /// </param>
+    /// <remarks>
+    /// Internal because a public overload beside the one with an optional parameter is exactly the
+    /// ambiguity the public API analyzers (RS0026/RS0027) reject.
+    /// </remarks>
+    internal GroupTickContextBuilder(DateTime tickTimeUtc, bool treatZeroIslandAsInvalid, int expectedCount)
+    {
+        int capacity = expectedCount < 0 ? 0 : expectedCount;
+        _contributions = new List<GroupContribution>(capacity);
+        _byEntity = new Dictionary<string, GroupContribution>(capacity, StringComparer.Ordinal);
         _tickTimeUtc = tickTimeUtc;
         _treatZeroIslandAsInvalid = treatZeroIslandAsInvalid;
     }

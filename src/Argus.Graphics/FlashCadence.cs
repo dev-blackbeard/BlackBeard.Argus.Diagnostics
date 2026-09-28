@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Microsoft.Maui.Graphics;
 
 namespace Argus.Graphics;
@@ -20,6 +21,14 @@ namespace Argus.Graphics;
 /// </remarks>
 public sealed class FlashCadence
 {
+    // The dimmed variant of each colour seen, so the dim phase does not allocate a new Color for
+    // every flagged row on every render. Colours come from a small policy palette, so this stays
+    // tiny; it is cleared if DimAlpha changes, and capped in case a host feeds it arbitrary colours.
+    private const int DimmedCacheLimit = 64;
+    private readonly Dictionary<Color, Color> _dimmed = new Dictionary<Color, Color>();
+    private readonly object _dimmedGate = new object();
+    private float _dimmedAlpha = float.NaN;
+
     /// <summary>How many renders each phase of the pulse lasts.</summary>
     /// <remarks>Fifteen: roughly a quarter-second phase at a common refresh rate, without this type having to know what the refresh rate is.</remarks>
     public int RendersPerPhase { get; set; } = 15;
@@ -46,6 +55,23 @@ public sealed class FlashCadence
             return color;
         }
 
-        return new Color(color.Red, color.Green, color.Blue, DimAlpha);
+        float alpha = DimAlpha;
+        lock (_dimmedGate)
+        {
+            if (!alpha.Equals(_dimmedAlpha) || _dimmed.Count >= DimmedCacheLimit)
+            {
+                _dimmed.Clear();
+                _dimmedAlpha = alpha;
+            }
+
+            Color dimmed;
+            if (!_dimmed.TryGetValue(color, out dimmed))
+            {
+                dimmed = new Color(color.Red, color.Green, color.Blue, alpha);
+                _dimmed[color] = dimmed;
+            }
+
+            return dimmed;
+        }
     }
 }

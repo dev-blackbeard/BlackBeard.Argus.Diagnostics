@@ -27,6 +27,16 @@ public sealed class QuaternionNormalisationDetector : IDetector
     /// <summary>The stable identifier this detector stamps on its findings.</summary>
     public const string DetectorId = "argus.attitude.non-normalised-quaternion";
 
+    // Results that carry nothing specific to one sample are built once: HealthFinding is
+    // immutable, and allocating an identical one per sample was pure garbage-collector load.
+    private static readonly DetectorResult NoQuaternion =
+        DetectorResult.NotEvaluable(HealthFlags.NonNormalisedQuaternion, DetectorId, "the sample did not supply all four quaternion components");
+
+    private static readonly DetectorResult NonFiniteQuaternion =
+        DetectorResult.NotEvaluable(HealthFlags.NonNormalisedQuaternion, DetectorId, "one or more quaternion components is not finite; see the NonFiniteValue finding");
+
+    private static readonly DetectorResult HealthyUnrecorded = DetectorResult.HealthyWithoutDetail(HealthFlags.NonNormalisedQuaternion, DetectorId);
+
     /// <inheritdoc />
     public string Id
     {
@@ -53,10 +63,7 @@ public sealed class QuaternionNormalisationDetector : IDetector
         if (!sample.QuaternionX.HasValue || !sample.QuaternionY.HasValue
             || !sample.QuaternionZ.HasValue || !sample.QuaternionW.HasValue)
         {
-            return DetectorResult.NotEvaluable(
-                Flag,
-                DetectorId,
-                "the sample did not supply all four quaternion components");
+            return NoQuaternion;
         }
 
         double x = sample.QuaternionX.Value;
@@ -66,15 +73,17 @@ public sealed class QuaternionNormalisationDetector : IDetector
 
         if (!Geo.IsFinite(x) || !Geo.IsFinite(y) || !Geo.IsFinite(z) || !Geo.IsFinite(w))
         {
-            return DetectorResult.NotEvaluable(
-                Flag,
-                DetectorId,
-                "one or more quaternion components is not finite; see the NonFiniteValue finding");
+            return NonFiniteQuaternion;
         }
 
         double norm = Math.Sqrt((x * x) + (y * y) + (z * z) + (w * w));
         double tolerance = context.Thresholds.QuaternionNormTolerance;
         double deviation = Math.Abs(norm - 1.0);
+
+        if (!(deviation > tolerance) && !context.RecordHealthyDetail)
+        {
+            return HealthyUnrecorded;
+        }
 
         string measured = HealthFinding.Quantity(norm, "(magnitude)");
         string expected = HealthFinding.Range(1.0 - tolerance, 1.0 + tolerance, "(magnitude)");

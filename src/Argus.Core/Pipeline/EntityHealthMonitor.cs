@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using Argus.Configuration;
 using Argus.Contracts;
 using Argus.Detectors;
@@ -31,7 +32,15 @@ public sealed class EntityHealthMonitor : IEntityStreamMonitor
 {
     private static readonly IReadOnlyList<HealthFinding> NoFindings = new List<HealthFinding>().AsReadOnly();
 
+    // One per thread rather than one per call: Observe may run on several threads at once for
+    // different entities, and each call only needs the buffer until it returns.
+    [ThreadStatic]
+    private static List<HealthFinding>? _findingsScratch;
+
     private readonly IReadOnlyList<IDetector> _detectors;
+
+    // The finding each declared-but-unimplemented detector reports, built once rather than per sample.
+    private readonly HealthFinding?[] _unimplementedFindings;
 
     /// <summary>Creates a monitor with the full catalogue and default options.</summary>
     public EntityHealthMonitor()
@@ -69,6 +78,18 @@ public sealed class EntityHealthMonitor : IEntityStreamMonitor
         }
 
         _detectors = selected.AsReadOnly();
+
+        _unimplementedFindings = new HealthFinding?[selected.Count];
+        for (int i = 0; i < selected.Count; i++)
+        {
+            if (selected[i].Status == DetectorStatus.NotImplemented)
+            {
+                _unimplementedFindings[i] = HealthFinding.NotEvaluable(
+                    selected[i].Flag,
+                    selected[i].Id,
+                    "this detector is declared in the catalogue but not yet implemented");
+            }
+        }
 
         Tracks = new TrackStore(
             Options.MaxTrackedEntities,
@@ -131,9 +152,11 @@ public sealed class EntityHealthMonitor : IEntityStreamMonitor
             effectiveThresholds,
             deltaTimeSeconds,
             validDeltaTimeSeconds,
-            positionIsUsable);
+            positionIsUsable,
+            Options.IncludeHealthyFindings);
 
-        var findings = new List<HealthFinding>();
+        List<HealthFinding> findings = _findingsScratch ?? (_findingsScratch = new List<HealthFinding>());
+        findings.Clear();
         HealthFlags flagged = HealthFlags.None;
 
         for (int i = 0; i < _detectors.Count; i++)
@@ -144,12 +167,10 @@ public sealed class EntityHealthMonitor : IEntityStreamMonitor
             {
                 // Never called: NotImplementedDetector.Evaluate throws by design. Surfacing it
                 // as NotEvaluable when asked keeps the gap visible without pretending to check.
-                if (Options.IncludeUnimplementedDetectors)
+                HealthFinding? unimplemented = _unimplementedFindings[i];
+                if (Options.IncludeUnimplementedDetectors && unimplemented != null)
                 {
-                    findings.Add(HealthFinding.NotEvaluable(
-                        detector.Flag,
-                        detector.Id,
-                        "this detector is declared in the catalogue but not yet implemented"));
+                    findings.Add(unimplemented);
                 }
 
                 continue;
@@ -192,10 +213,13 @@ public sealed class EntityHealthMonitor : IEntityStreamMonitor
 
         UpdateState(track, sample, positionIsUsable, deltaTimeSeconds, validDeltaTimeSeconds, effectiveThresholds);
 
+        IReadOnlyList<HealthFinding> reported = Freeze(findings, track);
+        findings.Clear();
+
         return new EntityHealthReport(
             sample.EntityId,
             sample.ArrivalTimeUtc,
-            findings.Count == 0 ? NoFindings : findings.AsReadOnly(),
+            reported,
             track.SamplesObserved,
             track.SamplesEvaluated,
             track.SamplesFlagged);
@@ -217,6 +241,49 @@ public sealed class EntityHealthMonitor : IEntityStreamMonitor
     public void Reset()
     {
         Tracks.Clear();
+    }
+
+    /// <summary>
+    /// Turns this call's findings into the report's read-only list, handing back the entity's
+    /// previous list instead when it holds exactly the same findings.
+    /// </summary>
+    /// <remarks>
+    /// Not-evaluable results and unrecorded healthy ones are cached instances, so on a steady
+    /// stream an entity reports the same findings, by reference, sample after sample (typically
+    /// the same few fields the source never supplies). Reusing the list then makes the report's
+    /// findings free; a flagged finding is always a new instance, so any change still gets a new list.
+    /// </remarks>
+    private static IReadOnlyList<HealthFinding> Freeze(List<HealthFinding> findings, EntityTrack track)
+    {
+        if (findings.Count == 0)
+        {
+            return NoFindings;
+        }
+
+        IReadOnlyList<HealthFinding>? previous = track.LastFindings;
+        if (previous != null && previous.Count == findings.Count)
+        {
+            bool same = true;
+            for (int i = 0; i < findings.Count; i++)
+            {
+                if (!ReferenceEquals(previous[i], findings[i]))
+                {
+                    same = false;
+                    break;
+                }
+            }
+
+            if (same)
+            {
+                return previous;
+            }
+        }
+
+        var copy = new HealthFinding[findings.Count];
+        findings.CopyTo(copy);
+        var frozen = new ReadOnlyCollection<HealthFinding>(copy);
+        track.LastFindings = frozen;
+        return frozen;
     }
 
     private static void UpdateState(

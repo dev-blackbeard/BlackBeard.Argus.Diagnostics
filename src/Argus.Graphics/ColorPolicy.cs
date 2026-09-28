@@ -185,21 +185,28 @@ public sealed class ColorPolicy
             return HealthFlags.None;
         }
 
+        // Indexed loops over HealthFlagInfo.All rather than HealthFlagInfo.Split: this runs for
+        // every flagged row on every render tick, and Split allocates an iterator each time.
+        IReadOnlyList<HealthFlags> all = HealthFlagInfo.All;
         IReadOnlyList<HealthFlagCategory> precedence = Precedence;
         for (int i = 0; i < precedence.Count; i++)
         {
-            foreach (HealthFlags flag in HealthFlagInfo.Split(flags))
+            for (int j = 0; j < all.Count; j++)
             {
-                if (HealthFlagInfo.GetCategory(flag) == precedence[i])
+                HealthFlags flag = all[j];
+                if ((flags & flag) != HealthFlags.None && HealthFlagInfo.GetCategory(flag) == precedence[i])
                 {
                     return flag;
                 }
             }
         }
 
-        foreach (HealthFlags flag in HealthFlagInfo.Split(flags))
+        for (int j = 0; j < all.Count; j++)
         {
-            return flag;
+            if ((flags & all[j]) != HealthFlags.None)
+            {
+                return all[j];
+            }
         }
 
         return HealthFlags.None;

@@ -37,7 +37,10 @@ public sealed class EntityHealthCollection
 {
     private readonly Dictionary<EntityKey, EntityHealthItemViewModel> _byKey = new Dictionary<EntityKey, EntityHealthItemViewModel>();
     private readonly Queue<EntityHealthItemViewModel> _dirty = new Queue<EntityHealthItemViewModel>();
+    private readonly List<EntityHealthItemViewModel> _animating = new List<EntityHealthItemViewModel>();
     private long _renderCount;
+    private FlashCadence? _animatedFlash;
+    private ReceiptPulse? _animatedReceipt;
 
     /// <summary>Creates a collection with the default colour policy.</summary>
     public EntityHealthCollection()
@@ -168,6 +171,7 @@ public sealed class EntityHealthCollection
             }
 
             item.Publish(Colors, _renderCount, Receipt);
+            StartAnimating(item);
             published++;
         }
 
@@ -175,26 +179,72 @@ public sealed class EntityHealthCollection
     }
 
     /// <summary>
-    /// Advances the render counter and re-resolves every row's colour and receipt opacity, so a
-    /// configured <see cref="FlashCadence"/> and <see cref="Receipt"/> both animate. Call this on
-    /// a timer from the UI thread. Flushes any recorded rows first, so a host using
+    /// The most recorded rows <see cref="RenderTick"/> publishes in one call. Unlimited by default.
+    /// </summary>
+    /// <remarks>
+    /// A host that records a large burst and then relies on its render timer alone would otherwise
+    /// publish the whole burst inside one timer callback, blocking the UI thread for as long as that
+    /// takes. With a limit the rest is published on following ticks, oldest first. Values below one
+    /// are treated as one.
+    /// </remarks>
+    public int RenderTickFlushLimit { get; set; } = int.MaxValue;
+
+    /// <summary>
+    /// Advances the render counter and re-resolves the colour and receipt opacity of every row that
+    /// is still animating, so a configured <see cref="FlashCadence"/> and <see cref="Receipt"/> both
+    /// animate. Call this on a timer from the UI thread. Publishes recorded rows first, up to
+    /// <see cref="RenderTickFlushLimit"/>, so a host using
     /// <see cref="Record(EntityHealthReport, EntitySample?, string?)"/> can rely on this timer alone.
     /// </summary>
+    /// <remarks>
+    /// Only rows that can still change are visited: a row whose receipt is still fading, or a
+    /// flagged row while <see cref="ColorPolicy.Flash"/> is set. A settled row's colour and opacity
+    /// no longer depend on the render count, so revisiting it every tick was work proportional to
+    /// the whole board for nothing. Replacing <see cref="Receipt"/> or <see cref="ColorPolicy.Flash"/>
+    /// makes the next tick revisit every row once.
+    /// </remarks>
     public void RenderTick()
     {
         _renderCount++;
-        Flush();
+        Flush(RenderTickFlushLimit < 1 ? 1 : RenderTickFlushLimit);
 
-        foreach (EntityHealthItemViewModel item in Items)
+        if (!ReferenceEquals(_animatedFlash, Colors.Flash) || !ReferenceEquals(_animatedReceipt, Receipt))
         {
+            _animatedFlash = Colors.Flash;
+            _animatedReceipt = Receipt;
+            foreach (EntityHealthItemViewModel row in Items)
+            {
+                StartAnimating(row);
+            }
+        }
+
+        bool flashing = Colors.Flash != null;
+        int kept = 0;
+        for (int i = 0; i < _animating.Count; i++)
+        {
+            EntityHealthItemViewModel item = _animating[i];
             EntityHealthReport? report = item.LatestReport;
             if (report != null)
             {
                 item.Color = Colors.Resolve(report, _renderCount);
             }
 
-            item.ReceiptOpacity = Receipt.Resolve(_renderCount - item.LastUpdatedRenderCount);
+            long rendersSinceUpdate = _renderCount - item.LastUpdatedRenderCount;
+            item.ReceiptOpacity = Receipt.Resolve(rendersSinceUpdate);
+
+            bool fading = rendersSinceUpdate < Receipt.FadeRenders;
+            bool flashes = flashing && report != null && report.Flags != HealthFlags.None;
+            if (fading || flashes)
+            {
+                _animating[kept++] = item;
+            }
+            else
+            {
+                item.IsAnimating = false;
+            }
         }
+
+        _animating.RemoveRange(kept, _animating.Count - kept);
     }
 
     /// <summary>Looks up the row for a key, if one exists.</summary>
@@ -211,6 +261,16 @@ public sealed class EntityHealthCollection
     {
         _byKey.Clear();
         _dirty.Clear();
+        _animating.Clear();
         Items.Clear();
+    }
+
+    private void StartAnimating(EntityHealthItemViewModel item)
+    {
+        if (!item.IsAnimating)
+        {
+            item.IsAnimating = true;
+            _animating.Add(item);
+        }
     }
 }

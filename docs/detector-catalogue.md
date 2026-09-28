@@ -350,7 +350,15 @@ looks like from the group's point of view — and when the arrangement loses str
    for the default — or `null` if the number is deployment-specific, in which case the detector
    reports `NotEvaluable` until configured.
 4. Implement `IDetector`, or derive from `NotImplementedDetector` with a
-   `// TODO(argus): <FLAG>` marker if you are only declaring it.
+   `// TODO(argus): <FLAG>` marker if you are only declaring it. `Evaluate` runs once per
+   sample, so keep it free of garbage on the common path, as the implemented detectors do:
+   - a `NotEvaluable` result whose reason is a fixed string is built once, in a
+     `private static readonly DetectorResult` field, and returned from there;
+   - when the sample is healthy and `context.RecordHealthyDetail` is `false`, return a cached
+     `DetectorResult.HealthyWithoutDetail(...)` *before* formatting the measured and expected
+     strings. The monitor discards those findings unless `MonitorOptions.IncludeHealthyFindings`
+     is set, and formatting them was most of what an observation allocated.
+   `Flagged` results always carry their full detail.
 5. Register it in `DetectorCatalogue.CreateAll`.
 6. Add an entry here.
 7. Add a golden case in `Argus.Golden.Tests`, or add the flag to `GoldenCases.Pending`. That
