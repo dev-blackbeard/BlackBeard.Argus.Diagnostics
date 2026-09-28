@@ -28,6 +28,9 @@ public sealed class EntityHealthItemViewModel : INotifyPropertyChanged
     private double _receiptOpacity;
     private bool _isExpanded;
     private IReadOnlyList<AlarmChipViewModel> _alarmChips = new List<AlarmChipViewModel>(0).AsReadOnly();
+    private EntityHealthReport? _pendingReport;
+    private EntitySample? _pendingSample;
+    private bool _countsChanged;
 
     internal EntityHealthItemViewModel(EntityKey key)
     {
@@ -76,7 +79,7 @@ public sealed class EntityHealthItemViewModel : INotifyPropertyChanged
     /// <summary>
     /// <see cref="FlagCounts"/>, as ready-to-render chips: one per flag that has fired at least
     /// once, each already carrying its own resolved colour. Never contains a zero-count entry —
-    /// a flag only appears here once <see cref="Apply"/> has actually raised it, the same
+    /// a flag only appears here once a report has actually raised it, the same
     /// invariant <see cref="FlagCounts"/> itself holds.
     /// </summary>
     public IReadOnlyList<AlarmChipViewModel> AlarmChips
@@ -106,7 +109,7 @@ public sealed class EntityHealthItemViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// The host collection's render count at the point this row was last <see cref="Apply"/>-ed.
+    /// The host collection's render count at the point this row was last <see cref="Publish"/>-ed.
     /// Presentation bookkeeping for <see cref="ReceiptOpacity"/>'s fade, not meant for a binding.
     /// </summary>
     internal long LastUpdatedRenderCount { get; set; }
@@ -121,23 +124,74 @@ public sealed class EntityHealthItemViewModel : INotifyPropertyChanged
     /// <summary>Toggles <see cref="IsExpanded"/>. Bind a UI's expander control to this rather than setting <see cref="IsExpanded"/> directly, so the binding needs no code-behind.</summary>
     public ICommand ToggleExpandedCommand { get; }
 
-    internal void Apply(EntityHealthReport report, EntitySample? sample)
+    /// <summary>Whether a report has been recorded for this row since it was last published.</summary>
+    internal bool IsDirty { get; private set; }
+
+    /// <summary>Whether this row has been published at least once, and so is in the bound list.</summary>
+    internal bool IsPublished { get; private set; }
+
+    /// <summary>
+    /// Counts a report's flags and remembers it as the row's pending latest report, without raising
+    /// any change notification. Cheap enough to run for every report, which is what keeps
+    /// <see cref="FlagCounts"/> exact however rarely the row is published.
+    /// </summary>
+    /// <param name="report">The report.</param>
+    /// <param name="sample">The sample it was produced from, if the caller has it.</param>
+    /// <returns><c>true</c> if the row was clean before this call, i.e. it has just become dirty.</returns>
+    internal bool Accumulate(EntityHealthReport report, EntitySample? sample)
     {
+        bool raisedAny = false;
         foreach (HealthFlags flag in HealthFlagInfo.Split(report.Flags))
         {
             long count;
             _flagCounts.TryGetValue(flag, out count);
             _flagCounts[flag] = count + 1L;
+            raisedAny = true;
         }
 
+        _pendingReport = report;
+        _pendingSample = sample;
+        _countsChanged |= raisedAny;
+
+        bool becameDirty = !IsDirty;
+        IsDirty = true;
+        return becameDirty;
+    }
+
+    /// <summary>
+    /// Pushes the pending state to the bindable properties, raising each change notification at most
+    /// once no matter how many reports were accumulated since the last publish.
+    /// </summary>
+    /// <param name="colors">The policy to resolve the row and chip colours from.</param>
+    /// <param name="renderCount">The host collection's current render count.</param>
+    /// <param name="receipt">The receipt pulse to restart.</param>
+    internal void Publish(ColorPolicy colors, long renderCount, ReceiptPulse receipt)
+    {
+        IsDirty = false;
+        IsPublished = true;
+
+        EntityHealthReport report = _pendingReport!;
         LatestReport = report;
-        LatestSample = sample;
-        OnPropertyChanged(nameof(FlagCounts));
+        LatestSample = _pendingSample;
+
+        // Rebuilding AlarmChips hands a bound list control a brand-new list, which recreates every
+        // chip's visual. Only do it when a count actually moved, which for a healthy stream is
+        // almost never, rather than on every report as before.
+        if (_countsChanged)
+        {
+            _countsChanged = false;
+            OnPropertyChanged(nameof(FlagCounts));
+            RefreshAlarmChips(colors);
+        }
+
+        Color = colors.Resolve(report, renderCount);
+        LastUpdatedRenderCount = renderCount;
+        ReceiptOpacity = receipt.Resolve(0);
     }
 
     /// <summary>Rebuilds <see cref="AlarmChips"/> from the current <see cref="FlagCounts"/>.</summary>
     /// <param name="colors">The policy to resolve each chip's colour from.</param>
-    internal void RefreshAlarmChips(ColorPolicy colors)
+    private void RefreshAlarmChips(ColorPolicy colors)
     {
         var chips = new List<AlarmChipViewModel>(_flagCounts.Count);
         foreach (KeyValuePair<HealthFlags, long> pair in _flagCounts)
