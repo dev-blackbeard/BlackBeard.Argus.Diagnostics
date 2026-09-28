@@ -67,7 +67,28 @@ public sealed class EntityHealthItemViewModel : INotifyPropertyChanged
     public EntitySample? LatestSample
     {
         get { return _sample; }
-        private set { SetField(ref _sample, value); }
+        private set
+        {
+            if (SetField(ref _sample, value) && _isExpanded)
+            {
+                OnPropertyChanged(nameof(ExpandedSample));
+            }
+        }
+    }
+
+    /// <summary>
+    /// <see cref="LatestSample"/> while <see cref="IsExpanded"/> is <c>true</c>; <c>null</c> while the
+    /// row is collapsed. Bind a row's detail-only fields to this rather than to <see cref="LatestSample"/>.
+    /// </summary>
+    /// <remarks>
+    /// A binding to a hidden element still re-evaluates on every change notification of its source,
+    /// so detail fields bound to <see cref="LatestSample"/> cost their full update on every report
+    /// even while nobody can see them. This property raises nothing while the row is collapsed, so
+    /// those bindings go quiet; expanding the row raises it once, which fills them in.
+    /// </remarks>
+    public EntitySample? ExpandedSample
+    {
+        get { return _isExpanded ? _sample : null; }
     }
 
     /// <summary>How many times each flag has been raised for this key, across every report observed.</summary>
@@ -118,7 +139,13 @@ public sealed class EntityHealthItemViewModel : INotifyPropertyChanged
     public bool IsExpanded
     {
         get { return _isExpanded; }
-        set { SetField(ref _isExpanded, value); }
+        set
+        {
+            if (SetField(ref _isExpanded, value))
+            {
+                OnPropertyChanged(nameof(ExpandedSample));
+            }
+        }
     }
 
     /// <summary>Toggles <see cref="IsExpanded"/>. Bind a UI's expander control to this rather than setting <see cref="IsExpanded"/> directly, so the binding needs no code-behind.</summary>
@@ -203,15 +230,16 @@ public sealed class EntityHealthItemViewModel : INotifyPropertyChanged
         AlarmChips = chips.AsReadOnly();
     }
 
-    private void SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+    private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
         if (EqualityComparer<T>.Default.Equals(field, value))
         {
-            return;
+            return false;
         }
 
         field = value;
         OnPropertyChanged(propertyName);
+        return true;
     }
 
     private void OnPropertyChanged(string? propertyName)
