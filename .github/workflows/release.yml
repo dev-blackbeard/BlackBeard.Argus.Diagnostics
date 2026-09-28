@@ -91,9 +91,9 @@ jobs:
         with:
           user: blackbeard
 
-      # bash expands the list and each package is pushed by name: on Windows, dotnet nuget push
-      # given the quoted "artifacts/local-feed/*.nupkg" reports "File does not exist", though the same line worked on
-      # Linux). Symbol packages beside each .nupkg are picked up by the push automatically.
+      # bash expands the list and each package is pushed by name. On Windows, dotnet nuget push
+      # given the quoted "artifacts/local-feed/*.nupkg" reports "File does not exist", though the
+      # same line worked on Linux. Each .nupkg's symbol package beside it is pushed with it.
       - name: Push
         shell: bash
         run: |
