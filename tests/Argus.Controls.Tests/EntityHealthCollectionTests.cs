@@ -234,6 +234,158 @@ public sealed class EntityHealthCollectionTests
         Assert.False(collection.TryGetItem(new EntityKey("entity-1", null), out _));
     }
 
+    [Fact]
+    public void RecordRaisesNothingUntilFlush()
+    {
+        var collection = new EntityHealthCollection();
+        collection.Observe(HealthyReport("entity-1"));
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? item);
+
+        var raised = new List<string?>();
+        item!.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        collection.Record(FlaggedReport("entity-1", HealthFlags.Teleport));
+        collection.Record(HealthyReport("entity-1"));
+
+        Assert.Empty(raised);
+        Assert.Equal(1, collection.PendingRowCount);
+    }
+
+    [Fact]
+    public void FlushPublishesEachRowOnceHoweverManyReportsItRecorded()
+    {
+        var collection = new EntityHealthCollection();
+        collection.Observe(HealthyReport("entity-1"));
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? item);
+
+        var raised = new List<string?>();
+        item!.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        var last = new EntitySample("entity-1", DateTime.UtcNow);
+        for (int i = 0; i < 10; i++)
+        {
+            collection.Record(HealthyReport("entity-1"), i == 9 ? last : new EntitySample("entity-1", DateTime.UtcNow));
+        }
+
+        Assert.Equal(1, collection.Flush());
+
+        Assert.Equal(1, raised.Count(name => name == nameof(EntityHealthItemViewModel.LatestSample)));
+        Assert.Equal(1, raised.Count(name => name == nameof(EntityHealthItemViewModel.LatestReport)));
+        Assert.Same(last, item.LatestSample);
+        Assert.Equal(0, collection.PendingRowCount);
+    }
+
+    [Fact]
+    public void RecordCountsEveryReportsFlagsEvenWhenTheRowIsPublishedOnce()
+    {
+        var collection = new EntityHealthCollection();
+
+        collection.Record(FlaggedReport("entity-1", HealthFlags.Teleport));
+        collection.Record(HealthyReport("entity-1"));
+        collection.Record(FlaggedReport("entity-1", HealthFlags.Teleport | HealthFlags.GroupOutlier));
+        collection.Record(HealthyReport("entity-1")); // the latest report is healthy: counts must survive it
+        collection.Flush();
+
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? item);
+        Assert.Equal(2L, item!.FlagCounts[HealthFlags.Teleport]);
+        Assert.Equal(1L, item.FlagCounts[HealthFlags.GroupOutlier]);
+        Assert.Equal(2L, item.AlarmChips.Single(c => c.Flag == HealthFlags.Teleport).Count);
+    }
+
+    [Fact]
+    public void ARecordedRowJoinsItemsOnlyWhenFlushedAndInFirstRecordedOrder()
+    {
+        var collection = new EntityHealthCollection();
+
+        collection.Record(HealthyReport("entity-2"));
+        collection.Record(HealthyReport("entity-1"));
+        collection.Record(HealthyReport("entity-2"));
+
+        Assert.Empty(collection.Items);
+
+        collection.Flush();
+
+        Assert.Equal(new[] { "entity-2", "entity-1" }, collection.Items.Select(i => i.EntityId).ToArray());
+    }
+
+    [Fact]
+    public void AHealthyReportDoesNotRebuildAlarmChips()
+    {
+        var collection = new EntityHealthCollection();
+        collection.Observe(FlaggedReport("entity-1", HealthFlags.Teleport));
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? item);
+        IReadOnlyList<AlarmChipViewModel> chipsBefore = item!.AlarmChips;
+
+        var raised = new List<string?>();
+        item.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        collection.Observe(HealthyReport("entity-1"));
+
+        // A new AlarmChips list makes a bound list control recreate every chip's visual.
+        Assert.DoesNotContain(nameof(EntityHealthItemViewModel.AlarmChips), raised);
+        Assert.Same(chipsBefore, item.AlarmChips);
+    }
+
+    [Fact]
+    public void AFlaggedReportDoesRebuildAlarmChips()
+    {
+        var collection = new EntityHealthCollection();
+        collection.Observe(FlaggedReport("entity-1", HealthFlags.Teleport));
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? item);
+
+        var raised = new List<string?>();
+        item!.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        collection.Observe(FlaggedReport("entity-1", HealthFlags.Teleport));
+
+        Assert.Contains(nameof(EntityHealthItemViewModel.AlarmChips), raised);
+        Assert.Equal(2L, item.AlarmChips.Single().Count);
+    }
+
+    [Fact]
+    public void FlushWithALimitPublishesOldestRowsFirstAndLeavesTheRestPending()
+    {
+        var collection = new EntityHealthCollection();
+        for (int i = 0; i < 5; i++)
+        {
+            collection.Record(HealthyReport("entity-" + i));
+        }
+
+        Assert.Equal(2, collection.Flush(2));
+        Assert.Equal(new[] { "entity-0", "entity-1" }, collection.Items.Select(i => i.EntityId).ToArray());
+        Assert.Equal(3, collection.PendingRowCount);
+
+        Assert.Equal(3, collection.Flush());
+        Assert.Equal(5, collection.Items.Count);
+    }
+
+    [Fact]
+    public void RenderTickFlushesRecordedRows()
+    {
+        var collection = new EntityHealthCollection { Receipt = new ReceiptPulse { PeakOpacity = 0.6 } };
+
+        collection.Record(HealthyReport("entity-1"));
+        collection.RenderTick();
+
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? item);
+        Assert.Single(collection.Items);
+        Assert.NotNull(item!.LatestReport);
+        Assert.Equal(0.6, item.ReceiptOpacity); // published on this render, so still at the peak
+    }
+
+    [Fact]
+    public void ClearDropsRowsStillPendingAFlush()
+    {
+        var collection = new EntityHealthCollection();
+        collection.Record(HealthyReport("entity-1"));
+
+        collection.Clear();
+
+        Assert.Equal(0, collection.PendingRowCount);
+        Assert.Equal(0, collection.Flush());
+        Assert.Empty(collection.Items);
+    }
+
     private static EntityHealthReport HealthyReport(string entityId)
     {
         return new EntityHealthReport(entityId, DateTime.UtcNow, Array.Empty<HealthFinding>(), samplesObserved: 1, samplesEvaluated: 1, samplesFlagged: 0);
