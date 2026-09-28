@@ -2,23 +2,13 @@
 
   <PropertyGroup>
     <!--
-      v1 scope: Android only. Windows (net8.0-windows10.0.19041.0) was attempted and reverted:
-      the WinUI XAML compiler (XamlCompiler.exe, from the WindowsAppSDK buildTransitive targets)
-      fails on EntityHealthCollectionView.xaml with MSB3073 exit code 1 and no further diagnostic
-      surfaced anywhere in CI's log capture. WindowsPackageType=None (tried first, see git history)
-      did not change the failure at all: same error, same line, so whatever that property
-      actually controls, it isn't this. Needs local repro with real MAUI tooling to get past "exit
-      code 1" to an actual cause; guessing further via CI rounds stopped being worth it. iOS/
-      MacCatalyst are separately blocked on this repo's CI having no macOS runner at all. Both
-      gaps are recorded in CLAUDE.md's backlog; see BlackBeard.Playbook's idiosyncrasies journal
-      for the full failure history before attempting Windows again.
+      Android everywhere; Windows added only where it can build. The v1 Windows attempt failed
+      on an opaque MSB3073 from the WinUI XamlCompiler.exe; the cause and fix are under
+      EnableDefaultPageItems below. iOS/MacCatalyst are blocked on this repo's CI having no
+      macOS runner (CLAUDE.md backlog).
     -->
     <TargetFrameworks>net8.0-android</TargetFrameworks>
-    <!--
-      Windows only where it can build (journal §3.3): there is no Windows SDK on Linux/macOS.
-      Second attempt, after the v1 revert described above: CI now dumps the WinUI XAML
-      compiler's own input/output files on failure, so an MSB3073 names its cause this time.
-    -->
+    <!-- Windows only where it can build (journal §3.3): there is no Windows SDK on Linux/macOS. -->
     <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net8.0-windows10.0.19041.0</TargetFrameworks>
     <UseMaui>true</UseMaui>
 

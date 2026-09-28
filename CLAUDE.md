@@ -30,20 +30,13 @@ This repository is **public**. Everything below is a hard constraint, not a pref
 - [ ] Add `net8.0-ios`/`net8.0-maccatalyst` to `Argus.Controls.Maui` once a macOS
       build agent is available. CI (`ubuntu-latest`/`windows-latest`) cannot build
       either TFM today — there is no Windows or Linux path to the iOS/MacCatalyst SDKs.
-- [ ] Get `net8.0-windows10.0.19041.0` building for `Argus.Controls.Maui`. Attempted
-      and reverted: the WinUI XAML compiler (`XamlCompiler.exe`, from the
-      WindowsAppSDK `buildTransitive` targets) fails on `EntityHealthCollectionView.xaml`
-      with `MSB3073` (exit code 1) and surfaces no further diagnostic anywhere in CI's
-      log capture. `WindowsPackageType=None` was tried first on the theory that the
-      compiler was treating the class library as a packaged app; it changed nothing —
-      identical error, identical line. Needs a local repro with the real MAUI/WinUI
-      tooling installed to get past "exit code 1" to an actual cause; six CI rounds of
-      guessing stopped being worth it. Full failure history:
-      `BlackBeard.Playbook`'s idiosyncrasies journal, §3.2.
-      (Resolved by the same CI runs, so no longer open: whether `UseMaui=true`
-      produces an explicit `Microsoft.Maui.Controls` `PackageReference` item —
-      confirmed yes, since `ArgusGuardUiDependencies`' `PackageReference`-based scan
-      caught it correctly and the Android build succeeded end to end.)
+- [x] Get `net8.0-windows10.0.19041.0` building for `Argus.Controls.Maui`. The v1
+      attempt died on an opaque `MSB3073` from the WinUI `XamlCompiler.exe`. The cause,
+      found once CI printed the compiler's `input.json`: the SDK's default `Page` glob
+      handed the MAUI `.xaml` files to the WinUI compiler, because `SingleProject=false`
+      skips the MAUI step that normally turns that glob off. Fixed with
+      `EnableDefaultPageItems=false` and `<Page Remove="**/*.xaml" />`. Packing now runs
+      on Windows (ci `packages`, `release.yml`) and checks the package holds both builds.
 
 ---
 
@@ -137,10 +130,9 @@ make this repository un-buildable on its own for anyone who clones only this hal
    "we'll revisit the interface later" is a deliberate act, not drift.
 9. `Argus.Core` and `Argus.Testing` multi-target `netstandard2.0;net8.0`.
    `Argus.Graphics` and `Argus.Controls` target `netstandard2.0`. `Argus.Controls.Maui`
-   is the one exception: `net8.0-android` only for now, because `Microsoft.Maui.Controls`
-   cannot target netstandard2.0 at all. `net8.0-windows10.0.19041.0` was attempted and
-   reverted — the WinUI XAML compiler fails on it with no diagnosable cause from CI alone
-   (see backlog); `net8.0-ios`/`net8.0-maccatalyst` are separately blocked on this
+   is the one exception: `net8.0-android`, plus `net8.0-windows10.0.19041.0` when built on
+   Windows, because `Microsoft.Maui.Controls` cannot target netstandard2.0 at all. Packages
+   are therefore packed on Windows. `net8.0-ios`/`net8.0-maccatalyst` are blocked on this
    repository's CI having no macOS runner.
 10. Deterministic builds, SourceLink, symbol packages, central package management.
 
@@ -218,7 +210,7 @@ Each has a named regression test. Do not regress them.
 src/Argus.Core         packed, zero dependencies, netstandard2.0;net8.0
 src/Argus.Graphics     packed, Core + Microsoft.Maui.Graphics, netstandard2.0
 src/Argus.Controls     packed, Core + Graphics, netstandard2.0, no Microsoft.Maui.Controls
-src/Argus.Controls.Maui packed, Controls + Microsoft.Maui.Controls, net8.0-android only (see backlog)
+src/Argus.Controls.Maui packed, Controls + Microsoft.Maui.Controls, net8.0-android + net8.0-windows (packed on Windows)
 src/Argus.Testing      packed, corruption-injection harness, netstandard2.0;net8.0
 src/Argus.Cli          not packed, replays a capture to JSONL/CSV findings
 samples/               PackageReference, never ProjectReference

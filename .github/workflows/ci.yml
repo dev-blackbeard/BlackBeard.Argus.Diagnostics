@@ -45,10 +45,8 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      # Argus.Controls.Maui targets net8.0-android only for now -- Windows was attempted and
-      # reverted (WinUI XamlCompiler.exe fails opaquely; see CLAUDE.md's backlog and
-      # BlackBeard.Playbook's idiosyncrasies journal), and iOS/MacCatalyst need a macOS runner
-      # this matrix doesn't have. android-only still needs the workload on both OSes.
+      # Argus.Controls.Maui targets net8.0-android everywhere and adds net8.0-windows10.0.19041.0
+      # when built on Windows; iOS/MacCatalyst need a macOS runner this matrix doesn't have.
       - name: Install the MAUI workload
         run: dotnet workload install maui-android
 
@@ -98,7 +96,9 @@ jobs:
 
   packages:
     name: package artifacts
-    runs-on: ubuntu-latest
+    # Windows, like release.yml: the only runner that packs Argus.Controls.Maui's Android and
+    # Windows builds together (journal §3.4).
+    runs-on: windows-latest
     needs: [hygiene, build]
     steps:
       - uses: actions/checkout@v4
@@ -107,12 +107,28 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Install the MAUI workload
-        run: dotnet workload install maui-android
+      - name: Install the MAUI workloads
+        run: dotnet workload install maui-android maui-windows
 
       - name: Pack
         shell: bash
         run: scripts/pack-local --configuration Release --clean
+
+      # A Controls.Maui packed without its Windows build restores fine and only fails in a
+      # consumer's Windows build (journal §3.4). Fail here instead.
+      - name: Check Controls.Maui carries every platform
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $package = Get-ChildItem artifacts/local-feed -Filter 'BlackBeard.Argus.Controls.Maui.*.nupkg' | Select-Object -First 1
+          $zip = [IO.Compression.ZipFile]::OpenRead($package.FullName)
+          try {
+            foreach ($tfm in 'lib/net8.0-android', 'lib/net8.0-windows10.0.19041') {
+              if (-not ($zip.Entries | Where-Object { $_.FullName.StartsWith($tfm) })) {
+                throw "$($package.Name) has no $tfm* folder"
+              }
+            }
+          } finally { $zip.Dispose() }
 
       # The pack step above is the check; the upload is a convenience copy (release.yml packs
       # its own), so a full artifact storage quota must not fail it.
