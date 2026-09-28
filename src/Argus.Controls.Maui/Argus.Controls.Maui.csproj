@@ -39,6 +39,17 @@
     <NoWarn>$(NoWarn);NETSDK1202</NoWarn>
 
     <SingleProject>false</SingleProject>
+
+    <!--
+      The cause of the Windows MSB3073 (found from XamlCompiler's input.json, printed by CI):
+      the SDK's default Page glob handed EntityHealthCollectionView.xaml and LegendView.xaml to
+      the WinUI XAML compiler as WinUI pages. They are MAUI XAML, compiled by MAUI's own
+      MauiXaml pipeline, and XamlCompiler.exe dies on them without writing output.json.
+      MAUI normally turns that glob off, but only in its single-project path, which
+      SingleProject=false above opts out of; so it is turned off here, and any Page item
+      removed in case another import adds one.
+    -->
+    <EnableDefaultPageItems>false</EnableDefaultPageItems>
     <RootNamespace>Argus.Controls.Maui</RootNamespace>
     <AssemblyName>Argus.Controls.Maui</AssemblyName>
     <IsPackable>true</IsPackable>
@@ -71,6 +82,10 @@
     -->
     <PackageReference Include="Microsoft.Maui.Controls" />
     <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Remove="**/*.xaml" />
   </ItemGroup>
 
   <ItemGroup>
