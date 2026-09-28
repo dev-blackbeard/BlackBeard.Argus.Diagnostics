@@ -14,6 +14,12 @@
       for the full failure history before attempting Windows again.
     -->
     <TargetFrameworks>net8.0-android</TargetFrameworks>
+    <!--
+      Windows only where it can build (journal §3.3): there is no Windows SDK on Linux/macOS.
+      Second attempt, after the v1 revert described above: CI now dumps the WinUI XAML
+      compiler's own input/output files on failure, so an MSB3073 names its cause this time.
+    -->
+    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net8.0-windows10.0.19041.0</TargetFrameworks>
     <UseMaui>true</UseMaui>
 
     <!--
@@ -46,7 +52,9 @@
     -->
     <InvariantGlobalization>false</InvariantGlobalization>
 
-    <SupportedOSPlatformVersion>21.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
+    <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
   </PropertyGroup>
 
   <ItemGroup>

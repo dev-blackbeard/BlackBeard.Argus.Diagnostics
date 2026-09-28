@@ -52,6 +52,11 @@ jobs:
       - name: Install the MAUI workload
         run: dotnet workload install maui-android
 
+      # Argus.Controls.Maui adds net8.0-windows10.0.19041.0 when built on Windows.
+      - name: Install the MAUI Windows workload
+        if: runner.os == 'Windows'
+        run: dotnet workload install maui-windows
+
       - name: Restore tool dependencies
         run: dotnet restore src/Argus.Core/Argus.Core.csproj
 
@@ -64,6 +69,18 @@ jobs:
 
       - name: Build
         run: dotnet build Argus.sln --configuration Release
+
+      # The WinUI XAML compiler reports failures as a bare "MSB3073 ... exited with code 1"; its
+      # real errors are in the input/output JSON and logs it writes under obj. Print them.
+      - name: Dump WinUI XAML compiler output
+        if: failure() && runner.os == 'Windows'
+        shell: bash
+        run: |
+          find artifacts src -path '*windows*' \( -name 'output.json' -o -name 'input.json' -o -name '*.xbf.log' -o -name 'XamlSaveStateFile.xml' -o -name '*XamlCompiler*.log' \) 2>/dev/null | while read -r file; do
+            echo "===== $file"
+            cat "$file"
+            echo
+          done
 
       - name: Test
         run: dotnet test Argus.sln --configuration Release --no-build --logger "trx;LogFileName=results.trx"
