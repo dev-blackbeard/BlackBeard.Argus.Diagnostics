@@ -91,10 +91,21 @@ jobs:
         with:
           user: blackbeard
 
+      # bash expands the list and each package is pushed by name: on Windows, dotnet nuget push
+      # given the quoted "artifacts/local-feed/*.nupkg" reports "File does not exist", though the same line worked on
+      # Linux). Symbol packages beside each .nupkg are picked up by the push automatically.
       - name: Push
         shell: bash
         run: |
-          dotnet nuget push "artifacts/local-feed/*.nupkg" \
-            --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \
-            --source https://api.nuget.org/v3/index.json \
-            --skip-duplicate
+          shopt -s nullglob
+          packages=(artifacts/local-feed/*.nupkg)
+          if [ ${#packages[@]} -eq 0 ]; then
+            echo "No packages in artifacts/local-feed" >&2
+            exit 1
+          fi
+          for package in "${packages[@]}"; do
+            dotnet nuget push "$package" \
+              --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \
+              --source https://api.nuget.org/v3/index.json \
+              --skip-duplicate
+          done
