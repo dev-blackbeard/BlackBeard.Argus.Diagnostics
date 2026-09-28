@@ -67,6 +67,19 @@ public readonly struct DetectorResult
         return new DetectorResult(HealthFinding.Healthy(flag, detectorId, measured, expected, measuredValue, unit));
     }
 
+    /// <summary>
+    /// Creates a healthy result with no measured or expected detail, for a detector to cache in a
+    /// static field and return whenever <see cref="DetectorContext.RecordHealthyDetail"/> is
+    /// <c>false</c>.
+    /// </summary>
+    /// <param name="flag">The condition that was checked for and not found.</param>
+    /// <param name="detectorId">Stable identifier of the detector.</param>
+    /// <returns>The result. Its finding is immutable, so one instance can be returned for every sample.</returns>
+    public static DetectorResult HealthyWithoutDetail(HealthFlags flag, string detectorId)
+    {
+        return new DetectorResult(HealthFinding.Healthy(flag, detectorId, "not recorded", "not recorded"));
+    }
+
     /// <summary>Creates a result recording that the detector could not run.</summary>
     /// <param name="flag">The condition that could not be checked.</param>
     /// <param name="detectorId">Stable identifier of the detector.</param>

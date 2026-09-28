@@ -17,6 +17,25 @@ public sealed class ImplausibleSpeedDetector : IDetector
     /// <summary>The stable identifier this detector stamps on its findings.</summary>
     public const string DetectorId = "argus.kinematic.implausible-speed";
 
+    // Results that carry nothing specific to one sample are built once: HealthFinding is
+    // immutable, and allocating an identical one per sample was pure garbage-collector load.
+    private static readonly DetectorResult GateNotConfigured =
+        DetectorResult.NotEvaluable(HealthFlags.ImplausibleSpeed, DetectorId, "DetectorThresholds.MaxSpeedMetersPerSecond is not configured, so there is no rate gate to compare against");
+
+    private static readonly DetectorResult PositionNotUsable =
+        DetectorResult.NotEvaluable(HealthFlags.ImplausibleSpeed, DetectorId, "this sample's position is not usable, so no speed can be derived from it");
+
+    private static readonly DetectorResult NoPreviousValidPosition =
+        DetectorResult.NotEvaluable(HealthFlags.ImplausibleSpeed, DetectorId, "no earlier valid position has been seen for this entity");
+
+    private static readonly DetectorResult IntervalNotPositive =
+        DetectorResult.NotEvaluable(HealthFlags.ImplausibleSpeed, DetectorId, "the interval since the previous valid sample is not positive, so a speed cannot be derived");
+
+    private static readonly DetectorResult SpeedNotComputable =
+        DetectorResult.NotEvaluable(HealthFlags.ImplausibleSpeed, DetectorId, "the speed since the previous valid position could not be computed");
+
+    private static readonly DetectorResult HealthyUnrecorded = DetectorResult.HealthyWithoutDetail(HealthFlags.ImplausibleSpeed, DetectorId);
+
     /// <inheritdoc />
     public string Id
     {
@@ -41,43 +60,33 @@ public sealed class ImplausibleSpeedDetector : IDetector
         double? gate = context.Thresholds.MaxSpeedMetersPerSecond;
         if (!gate.HasValue)
         {
-            return DetectorResult.NotEvaluable(
-                Flag,
-                DetectorId,
-                "DetectorThresholds.MaxSpeedMetersPerSecond is not configured, so there is no rate gate to compare against");
+            return GateNotConfigured;
         }
 
         if (!context.PositionIsUsable)
         {
-            return DetectorResult.NotEvaluable(
-                Flag,
-                DetectorId,
-                "this sample's position is not usable, so no speed can be derived from it");
+            return PositionNotUsable;
         }
 
         if (context.PreviousValidSample == null)
         {
-            return DetectorResult.NotEvaluable(
-                Flag,
-                DetectorId,
-                "no earlier valid position has been seen for this entity");
+            return NoPreviousValidPosition;
         }
 
         if (!context.ValidDeltaTimeSeconds.HasValue || context.ValidDeltaTimeSeconds.Value <= 0.0)
         {
-            return DetectorResult.NotEvaluable(
-                Flag,
-                DetectorId,
-                "the interval since the previous valid sample is not positive, so a speed cannot be derived");
+            return IntervalNotPositive;
         }
 
         double? speed = context.DerivedSpeedMetersPerSecond();
         if (!speed.HasValue)
         {
-            return DetectorResult.NotEvaluable(
-                Flag,
-                DetectorId,
-                "the speed since the previous valid position could not be computed");
+            return SpeedNotComputable;
+        }
+
+        if (!(speed.Value > gate.Value) && !context.RecordHealthyDetail)
+        {
+            return HealthyUnrecorded;
         }
 
         string measured = HealthFinding.Quantity(speed.Value, "m/s");

@@ -23,6 +23,13 @@ public sealed class DuplicateSampleDetector : IDetector
     /// <summary>The stable identifier this detector stamps on its findings.</summary>
     public const string DetectorId = "argus.temporal.duplicate-sample";
 
+    // Results that carry nothing specific to one sample are built once: HealthFinding is
+    // immutable, and allocating an identical one per sample was pure garbage-collector load.
+    private static readonly DetectorResult FirstSample =
+        DetectorResult.NotEvaluable(HealthFlags.DuplicateSample, DetectorId, "this is the first sample seen for this entity, so there is nothing to compare it against");
+
+    private static readonly DetectorResult HealthyUnrecorded = DetectorResult.HealthyWithoutDetail(HealthFlags.DuplicateSample, DetectorId);
+
     /// <inheritdoc />
     public string Id
     {
@@ -47,17 +54,20 @@ public sealed class DuplicateSampleDetector : IDetector
         EntitySample? previous = context.PreviousSeenSample;
         if (previous == null)
         {
-            return DetectorResult.NotEvaluable(
-                Flag,
-                DetectorId,
-                "this is the first sample seen for this entity, so there is nothing to compare it against");
+            return FirstSample;
         }
 
         double epsilon = context.Thresholds.DuplicatePayloadEpsilon;
+        bool duplicate = context.Sample.PayloadEquals(previous, epsilon);
+        if (!duplicate && !context.RecordHealthyDetail)
+        {
+            return HealthyUnrecorded;
+        }
+
         string expected = "at least one measurement field differing by more than "
             + epsilon.ToString("G6", CultureInfo.InvariantCulture);
 
-        if (context.Sample.PayloadEquals(previous, epsilon))
+        if (duplicate)
         {
             return DetectorResult.Flagged(
                 Flag,

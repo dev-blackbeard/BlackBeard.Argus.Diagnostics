@@ -25,6 +25,16 @@ public sealed class OutOfOrderSequenceDetector : IDetector
     /// <summary>The stable identifier this detector stamps on its findings.</summary>
     public const string DetectorId = "argus.temporal.out-of-order-sequence";
 
+    // Results that carry nothing specific to one sample are built once: HealthFinding is
+    // immutable, and allocating an identical one per sample was pure garbage-collector load.
+    private static readonly DetectorResult NoSequenceNumber =
+        DetectorResult.NotEvaluable(HealthFlags.OutOfOrderSequence, DetectorId, "EntitySample.SequenceNumber was not supplied, so arrival order cannot be checked");
+
+    private static readonly DetectorResult NoPreviousSequenceNumber =
+        DetectorResult.NotEvaluable(HealthFlags.OutOfOrderSequence, DetectorId, "no earlier sequence number has been seen for this entity");
+
+    private static readonly DetectorResult HealthyUnrecorded = DetectorResult.HealthyWithoutDetail(HealthFlags.OutOfOrderSequence, DetectorId);
+
     /// <inheritdoc />
     public string Id
     {
@@ -48,22 +58,21 @@ public sealed class OutOfOrderSequenceDetector : IDetector
     {
         if (!context.Sample.SequenceNumber.HasValue)
         {
-            return DetectorResult.NotEvaluable(
-                Flag,
-                DetectorId,
-                "EntitySample.SequenceNumber was not supplied, so arrival order cannot be checked");
+            return NoSequenceNumber;
         }
 
         long? highest = context.Track.HighestSequenceNumber;
         if (!highest.HasValue)
         {
-            return DetectorResult.NotEvaluable(
-                Flag,
-                DetectorId,
-                "no earlier sequence number has been seen for this entity");
+            return NoPreviousSequenceNumber;
         }
 
         long sequence = context.Sample.SequenceNumber!.Value;
+        if (sequence > highest.Value && !context.RecordHealthyDetail)
+        {
+            return HealthyUnrecorded;
+        }
+
         string measured = sequence.ToString(CultureInfo.InvariantCulture);
         string expected = "greater than " + highest.Value.ToString(CultureInfo.InvariantCulture);
 

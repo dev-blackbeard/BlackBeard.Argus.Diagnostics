@@ -31,6 +31,30 @@ public sealed class DetectorContext
         double? deltaTimeSeconds,
         double? validDeltaTimeSeconds,
         bool positionIsUsable)
+        : this(sample, track, group, thresholds, deltaTimeSeconds, validDeltaTimeSeconds, positionIsUsable, true)
+    {
+    }
+
+    /// <summary>Creates a context.</summary>
+    /// <param name="sample">The sample under evaluation.</param>
+    /// <param name="track">The entity's state as it was <i>before</i> this sample was applied.</param>
+    /// <param name="group">The tick's group statistics, or <c>null</c> if the caller supplied none.</param>
+    /// <param name="thresholds">The thresholds in force for this observation.</param>
+    /// <param name="deltaTimeSeconds">Seconds since the previous arrival, or <c>null</c> if this is the first.</param>
+    /// <param name="validDeltaTimeSeconds">Seconds since the previous <i>valid</i> sample, or <c>null</c> if there was none.</param>
+    /// <param name="positionIsUsable">Whether this sample's position may be used as a measurement.</param>
+    /// <param name="recordHealthyDetail">
+    /// Whether a healthy result must carry its measured and expected values; see <see cref="RecordHealthyDetail"/>.
+    /// </param>
+    public DetectorContext(
+        EntitySample sample,
+        EntityTrack track,
+        GroupTickContext? group,
+        DetectorThresholds thresholds,
+        double? deltaTimeSeconds,
+        double? validDeltaTimeSeconds,
+        bool positionIsUsable,
+        bool recordHealthyDetail)
     {
         Sample = sample;
         Track = track;
@@ -39,6 +63,7 @@ public sealed class DetectorContext
         DeltaTimeSeconds = deltaTimeSeconds;
         ValidDeltaTimeSeconds = validDeltaTimeSeconds;
         PositionIsUsable = positionIsUsable;
+        RecordHealthyDetail = recordHealthyDetail;
     }
 
     /// <summary>The sample under evaluation.</summary>
@@ -79,6 +104,19 @@ public sealed class DetectorContext
 
     /// <summary>Whether this sample's position may be used as a measurement.</summary>
     public bool PositionIsUsable { get; }
+
+    /// <summary>
+    /// Whether a healthy result has to carry its measured and expected values. When this is
+    /// <c>false</c>, a detector that found nothing may return a cached
+    /// <see cref="DetectorResult.HealthyWithoutDetail"/> result instead of formatting them.
+    /// </summary>
+    /// <remarks>
+    /// The monitor sets this from <see cref="MonitorOptions.IncludeHealthyFindings"/>.
+    /// A healthy finding that is not kept is discarded as soon as it is returned, so formatting its
+    /// strings was most of what one observation allocated, on every sample of a healthy stream.
+    /// Flagged and not-evaluable results are unaffected: they always carry their full detail.
+    /// </remarks>
+    public bool RecordHealthyDetail { get; }
 
     /// <summary>The previous valid sample, or <c>null</c> if there has not been one.</summary>
     public EntitySample? PreviousValidSample

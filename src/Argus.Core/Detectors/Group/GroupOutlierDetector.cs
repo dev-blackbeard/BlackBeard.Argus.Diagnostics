@@ -37,6 +37,25 @@ public sealed class GroupOutlierDetector : IDetector
     /// <summary>The stable identifier this detector stamps on its findings.</summary>
     public const string DetectorId = "argus.group.outlier";
 
+    // Results that carry nothing specific to one sample are built once: HealthFinding is
+    // immutable, and allocating an identical one per sample was pure garbage-collector load.
+    private static readonly DetectorResult RadiusNotConfigured =
+        DetectorResult.NotEvaluable(HealthFlags.GroupOutlier, DetectorId, "DetectorThresholds.GroupOutlierRadiusMeters is not configured, so there is no radius to compare against");
+
+    private static readonly DetectorResult NoGroupContext =
+        DetectorResult.NotEvaluable(HealthFlags.GroupOutlier, DetectorId, "no group tick context was supplied; call IEntityStreamMonitor.CreateTickContext once per tick and pass it to Observe");
+
+    private static readonly DetectorResult PositionNotUsable =
+        DetectorResult.NotEvaluable(HealthFlags.GroupOutlier, DetectorId, "this sample's position is not usable, so its distance from the group cannot be measured");
+
+    private static readonly DetectorResult IdentitiesUnresolved =
+        DetectorResult.NotEvaluable(HealthFlags.GroupOutlier, DetectorId, "at least one group member's identity could not be resolved, so the entity under test cannot be excluded from its own centroid");
+
+    private static readonly DetectorResult DistanceNotComputable =
+        DetectorResult.NotEvaluable(HealthFlags.GroupOutlier, DetectorId, "the distance to the group centroid could not be computed");
+
+    private static readonly DetectorResult HealthyUnrecorded = DetectorResult.HealthyWithoutDetail(HealthFlags.GroupOutlier, DetectorId);
+
     /// <inheritdoc />
     public string Id
     {
@@ -61,35 +80,23 @@ public sealed class GroupOutlierDetector : IDetector
         double? radius = context.Thresholds.GroupOutlierRadiusMeters;
         if (!radius.HasValue)
         {
-            return DetectorResult.NotEvaluable(
-                Flag,
-                DetectorId,
-                "DetectorThresholds.GroupOutlierRadiusMeters is not configured, so there is no radius to compare against");
+            return RadiusNotConfigured;
         }
 
         GroupTickContext? group = context.Group;
         if (group == null)
         {
-            return DetectorResult.NotEvaluable(
-                Flag,
-                DetectorId,
-                "no group tick context was supplied; call IEntityStreamMonitor.CreateTickContext once per tick and pass it to Observe");
+            return NoGroupContext;
         }
 
         if (!context.PositionIsUsable)
         {
-            return DetectorResult.NotEvaluable(
-                Flag,
-                DetectorId,
-                "this sample's position is not usable, so its distance from the group cannot be measured");
+            return PositionNotUsable;
         }
 
         if (!group.IdentitiesResolved)
         {
-            return DetectorResult.NotEvaluable(
-                Flag,
-                DetectorId,
-                "at least one group member's identity could not be resolved, so the entity under test cannot be excluded from its own centroid");
+            return IdentitiesUnresolved;
         }
 
         int minimum = context.Thresholds.MinimumGroupContributors;
@@ -119,10 +126,12 @@ public sealed class GroupOutlierDetector : IDetector
 
         if (!Geo.IsFinite(distance))
         {
-            return DetectorResult.NotEvaluable(
-                Flag,
-                DetectorId,
-                "the distance to the group centroid could not be computed");
+            return DistanceNotComputable;
+        }
+
+        if (!(distance > radius.Value) && !context.RecordHealthyDetail)
+        {
+            return HealthyUnrecorded;
         }
 
         string measured = string.Format(

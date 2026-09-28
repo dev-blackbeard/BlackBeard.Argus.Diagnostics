@@ -133,6 +133,9 @@ public sealed class EntityTrack
     /// <summary>How many consecutive valid samples reported a position that had not moved.</summary>
     public int StaticSampleRun { get; internal set; }
 
+    /// <summary>The findings list of this entity's latest report, reused while its findings are unchanged.</summary>
+    internal IReadOnlyList<HealthFinding>? LastFindings { get; set; }
+
     /// <summary>The recent valid positions, oldest first.</summary>
     public IEnumerable<TrackPoint> RecentPoints
     {

@@ -24,6 +24,13 @@ public sealed class NonPositiveDeltaTimeDetector : IDetector
     /// <summary>The stable identifier this detector stamps on its findings.</summary>
     public const string DetectorId = "argus.temporal.non-positive-delta-time";
 
+    // Results that carry nothing specific to one sample are built once: HealthFinding is
+    // immutable, and allocating an identical one per sample was pure garbage-collector load.
+    private static readonly DetectorResult FirstSample =
+        DetectorResult.NotEvaluable(HealthFlags.NonPositiveDeltaTime, DetectorId, "this is the first sample seen for this entity, and an interval needs two arrivals");
+
+    private static readonly DetectorResult HealthyUnrecorded = DetectorResult.HealthyWithoutDetail(HealthFlags.NonPositiveDeltaTime, DetectorId);
+
     /// <inheritdoc />
     public string Id
     {
@@ -47,13 +54,15 @@ public sealed class NonPositiveDeltaTimeDetector : IDetector
     {
         if (!context.DeltaTimeSeconds.HasValue)
         {
-            return DetectorResult.NotEvaluable(
-                Flag,
-                DetectorId,
-                "this is the first sample seen for this entity, and an interval needs two arrivals");
+            return FirstSample;
         }
 
         double delta = context.DeltaTimeSeconds.Value;
+        if (!(delta <= 0.0) && !context.RecordHealthyDetail)
+        {
+            return HealthyUnrecorded;
+        }
+
         string measured = delta.ToString("G6", CultureInfo.InvariantCulture) + " s";
 
         if (delta <= 0.0)

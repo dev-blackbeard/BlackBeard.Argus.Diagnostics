@@ -27,6 +27,13 @@ public sealed class NonFiniteValueDetector : IDetector
     /// <summary>The stable identifier this detector stamps on its findings.</summary>
     public const string DetectorId = "argus.encoding.non-finite-value";
 
+    // Results that carry nothing specific to one sample are built once: HealthFinding is
+    // immutable, and allocating an identical one per sample was pure garbage-collector load.
+    private static readonly DetectorResult NoNumericFields =
+        DetectorResult.NotEvaluable(HealthFlags.NonFiniteValue, DetectorId, "the sample supplied no numeric fields to inspect");
+
+    private static readonly DetectorResult HealthyUnrecorded = DetectorResult.HealthyWithoutDetail(HealthFlags.NonFiniteValue, DetectorId);
+
     /// <inheritdoc />
     public string Id
     {
@@ -50,34 +57,35 @@ public sealed class NonFiniteValueDetector : IDetector
     {
         bool treatSubnormalAsNonFinite = context.Thresholds.TreatSubnormalAsNonFinite;
 
-        var offenders = new List<string>();
+        // Created only when a field fails, which on a healthy stream is never.
+        List<string>? offenders = null;
         int inspected = 0;
 
         EntitySample sample = context.Sample;
-        Inspect("Latitude", sample.Latitude, offenders, ref inspected, treatSubnormalAsNonFinite);
-        Inspect("Longitude", sample.Longitude, offenders, ref inspected, treatSubnormalAsNonFinite);
-        Inspect("Altitude", sample.Altitude, offenders, ref inspected, treatSubnormalAsNonFinite);
-        Inspect("RollDegrees", sample.RollDegrees, offenders, ref inspected, treatSubnormalAsNonFinite);
-        Inspect("PitchDegrees", sample.PitchDegrees, offenders, ref inspected, treatSubnormalAsNonFinite);
-        Inspect("YawDegrees", sample.YawDegrees, offenders, ref inspected, treatSubnormalAsNonFinite);
-        Inspect("HeadingDegrees", sample.HeadingDegrees, offenders, ref inspected, treatSubnormalAsNonFinite);
-        Inspect("QuaternionX", sample.QuaternionX, offenders, ref inspected, treatSubnormalAsNonFinite);
-        Inspect("QuaternionY", sample.QuaternionY, offenders, ref inspected, treatSubnormalAsNonFinite);
-        Inspect("QuaternionZ", sample.QuaternionZ, offenders, ref inspected, treatSubnormalAsNonFinite);
-        Inspect("QuaternionW", sample.QuaternionW, offenders, ref inspected, treatSubnormalAsNonFinite);
-        Inspect("VelocityNorthMetersPerSecond", sample.VelocityNorthMetersPerSecond, offenders, ref inspected, treatSubnormalAsNonFinite);
-        Inspect("VelocityEastMetersPerSecond", sample.VelocityEastMetersPerSecond, offenders, ref inspected, treatSubnormalAsNonFinite);
-        Inspect("VelocityDownMetersPerSecond", sample.VelocityDownMetersPerSecond, offenders, ref inspected, treatSubnormalAsNonFinite);
-        Inspect("AngularVelocityXDegreesPerSecond", sample.AngularVelocityXDegreesPerSecond, offenders, ref inspected, treatSubnormalAsNonFinite);
-        Inspect("AngularVelocityYDegreesPerSecond", sample.AngularVelocityYDegreesPerSecond, offenders, ref inspected, treatSubnormalAsNonFinite);
-        Inspect("AngularVelocityZDegreesPerSecond", sample.AngularVelocityZDegreesPerSecond, offenders, ref inspected, treatSubnormalAsNonFinite);
+        Inspect("Latitude", sample.Latitude, ref offenders, ref inspected, treatSubnormalAsNonFinite);
+        Inspect("Longitude", sample.Longitude, ref offenders, ref inspected, treatSubnormalAsNonFinite);
+        Inspect("Altitude", sample.Altitude, ref offenders, ref inspected, treatSubnormalAsNonFinite);
+        Inspect("RollDegrees", sample.RollDegrees, ref offenders, ref inspected, treatSubnormalAsNonFinite);
+        Inspect("PitchDegrees", sample.PitchDegrees, ref offenders, ref inspected, treatSubnormalAsNonFinite);
+        Inspect("YawDegrees", sample.YawDegrees, ref offenders, ref inspected, treatSubnormalAsNonFinite);
+        Inspect("HeadingDegrees", sample.HeadingDegrees, ref offenders, ref inspected, treatSubnormalAsNonFinite);
+        Inspect("QuaternionX", sample.QuaternionX, ref offenders, ref inspected, treatSubnormalAsNonFinite);
+        Inspect("QuaternionY", sample.QuaternionY, ref offenders, ref inspected, treatSubnormalAsNonFinite);
+        Inspect("QuaternionZ", sample.QuaternionZ, ref offenders, ref inspected, treatSubnormalAsNonFinite);
+        Inspect("QuaternionW", sample.QuaternionW, ref offenders, ref inspected, treatSubnormalAsNonFinite);
+        Inspect("VelocityNorthMetersPerSecond", sample.VelocityNorthMetersPerSecond, ref offenders, ref inspected, treatSubnormalAsNonFinite);
+        Inspect("VelocityEastMetersPerSecond", sample.VelocityEastMetersPerSecond, ref offenders, ref inspected, treatSubnormalAsNonFinite);
+        Inspect("VelocityDownMetersPerSecond", sample.VelocityDownMetersPerSecond, ref offenders, ref inspected, treatSubnormalAsNonFinite);
+        Inspect("AngularVelocityXDegreesPerSecond", sample.AngularVelocityXDegreesPerSecond, ref offenders, ref inspected, treatSubnormalAsNonFinite);
+        Inspect("AngularVelocityYDegreesPerSecond", sample.AngularVelocityYDegreesPerSecond, ref offenders, ref inspected, treatSubnormalAsNonFinite);
+        Inspect("AngularVelocityZDegreesPerSecond", sample.AngularVelocityZDegreesPerSecond, ref offenders, ref inspected, treatSubnormalAsNonFinite);
 
         IReadOnlyList<RawField>? rawFields = sample.RawFields;
         if (rawFields != null)
         {
             for (int i = 0; i < rawFields.Count; i++)
             {
-                Inspect(rawFields[i].Name, rawFields[i].Value, offenders, ref inspected, treatSubnormalAsNonFinite);
+                Inspect(rawFields[i].Name, rawFields[i].Value, ref offenders, ref inspected, treatSubnormalAsNonFinite);
             }
         }
 
@@ -87,13 +95,10 @@ public sealed class NonFiniteValueDetector : IDetector
 
         if (inspected == 0)
         {
-            return DetectorResult.NotEvaluable(
-                Flag,
-                DetectorId,
-                "the sample supplied no numeric fields to inspect");
+            return NoNumericFields;
         }
 
-        if (offenders.Count > 0)
+        if (offenders != null)
         {
             return DetectorResult.Flagged(
                 Flag,
@@ -104,10 +109,15 @@ public sealed class NonFiniteValueDetector : IDetector
                 "fields");
         }
 
+        if (!context.RecordHealthyDetail)
+        {
+            return HealthyUnrecorded;
+        }
+
         return DetectorResult.Healthy(Flag, DetectorId, inspected + " fields finite", expected, 0.0, "fields");
     }
 
-    private static void Inspect(string name, double? value, List<string> offenders, ref int inspected, bool treatSubnormalAsNonFinite)
+    private static void Inspect(string name, double? value, ref List<string>? offenders, ref int inspected, bool treatSubnormalAsNonFinite)
     {
         if (!value.HasValue)
         {
@@ -119,19 +129,19 @@ public sealed class NonFiniteValueDetector : IDetector
 
         if (double.IsNaN(actual))
         {
-            offenders.Add(name + "=NaN");
+            (offenders ??= new List<string>()).Add(name + "=NaN");
         }
         else if (double.IsPositiveInfinity(actual))
         {
-            offenders.Add(name + "=+Infinity");
+            (offenders ??= new List<string>()).Add(name + "=+Infinity");
         }
         else if (double.IsNegativeInfinity(actual))
         {
-            offenders.Add(name + "=-Infinity");
+            (offenders ??= new List<string>()).Add(name + "=-Infinity");
         }
         else if (treatSubnormalAsNonFinite && Geo.IsSubnormal(actual))
         {
-            offenders.Add(name + "=subnormal");
+            (offenders ??= new List<string>()).Add(name + "=subnormal");
         }
     }
 }

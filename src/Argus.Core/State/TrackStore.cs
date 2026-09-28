@@ -84,7 +84,15 @@ public sealed class TrackStore
             throw new ArgumentNullException(nameof(entityId));
         }
 
-        EntityTrack track = _tracks.GetOrAdd(entityId, CreateTrack);
+        // TryGetValue first: passing the CreateTrack method group allocates a delegate on every
+        // call, and after an entity's first sample the track is always already there.
+        EntityTrack? track;
+        if (!_tracks.TryGetValue(entityId, out track) || track == null)
+        {
+            track = _tracks.GetOrAdd(entityId, CreateTrack);
+        }
+
+
         track.LastTouchedUtc = nowUtc;
 
         if (Interlocked.Increment(ref _touchesSinceEviction) >= EvictionInterval)

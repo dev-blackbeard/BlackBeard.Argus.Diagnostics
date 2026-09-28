@@ -30,6 +30,22 @@ public sealed class TeleportDetector : IDetector
     /// <summary>The stable identifier this detector stamps on its findings.</summary>
     public const string DetectorId = "argus.kinematic.teleport";
 
+    // Results that carry nothing specific to one sample are built once: HealthFinding is
+    // immutable, and allocating an identical one per sample was pure garbage-collector load.
+    private static readonly DetectorResult GateNotConfigured =
+        DetectorResult.NotEvaluable(HealthFlags.Teleport, DetectorId, "DetectorThresholds.MaxTeleportDistanceMeters is not configured, so there is no distance gate to compare against");
+
+    private static readonly DetectorResult PositionNotUsable =
+        DetectorResult.NotEvaluable(HealthFlags.Teleport, DetectorId, "this sample's position is not usable, so no displacement can be derived from it");
+
+    private static readonly DetectorResult NoPreviousValidPosition =
+        DetectorResult.NotEvaluable(HealthFlags.Teleport, DetectorId, "no earlier valid position has been seen for this entity");
+
+    private static readonly DetectorResult DistanceNotComputable =
+        DetectorResult.NotEvaluable(HealthFlags.Teleport, DetectorId, "the distance from the previous valid position could not be computed");
+
+    private static readonly DetectorResult HealthyUnrecorded = DetectorResult.HealthyWithoutDetail(HealthFlags.Teleport, DetectorId);
+
     /// <inheritdoc />
     public string Id
     {
@@ -54,35 +70,28 @@ public sealed class TeleportDetector : IDetector
         double? gate = context.Thresholds.MaxTeleportDistanceMeters;
         if (!gate.HasValue)
         {
-            return DetectorResult.NotEvaluable(
-                Flag,
-                DetectorId,
-                "DetectorThresholds.MaxTeleportDistanceMeters is not configured, so there is no distance gate to compare against");
+            return GateNotConfigured;
         }
 
         if (!context.PositionIsUsable)
         {
-            return DetectorResult.NotEvaluable(
-                Flag,
-                DetectorId,
-                "this sample's position is not usable, so no displacement can be derived from it");
+            return PositionNotUsable;
         }
 
         if (context.PreviousValidSample == null)
         {
-            return DetectorResult.NotEvaluable(
-                Flag,
-                DetectorId,
-                "no earlier valid position has been seen for this entity");
+            return NoPreviousValidPosition;
         }
 
         double? distance = context.DistanceFromPreviousValidMeters();
         if (!distance.HasValue)
         {
-            return DetectorResult.NotEvaluable(
-                Flag,
-                DetectorId,
-                "the distance from the previous valid position could not be computed");
+            return DistanceNotComputable;
+        }
+
+        if (!(distance.Value > gate.Value) && !context.RecordHealthyDetail)
+        {
+            return HealthyUnrecorded;
         }
 
         string measured = HealthFinding.Quantity(distance.Value, "m");

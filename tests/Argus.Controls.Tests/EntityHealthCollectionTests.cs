@@ -5,6 +5,7 @@ using System.Linq;
 using Argus.Contracts;
 using Argus.Controls;
 using Argus.Graphics;
+using Microsoft.Maui.Graphics;
 using Xunit;
 
 namespace Argus.Controls.Tests;
@@ -451,6 +452,88 @@ public sealed class EntityHealthCollectionTests
 
         Assert.Equal(2, raised.Count(name => name == nameof(EntityHealthItemViewModel.ExpandedSample)));
         Assert.Null(item.ExpandedSample);
+    }
+
+    [Fact]
+    public void AFlaggedRowKeepsFlashingLongAfterItsReceiptHasFaded()
+    {
+        var collection = new EntityHealthCollection { Receipt = new ReceiptPulse { FadeRenders = 2 } };
+        collection.Colors.Flash = new FlashCadence { RendersPerPhase = 1 };
+        collection.Observe(FlaggedReport("entity-1", HealthFlags.Teleport));
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? item);
+
+        for (int i = 0; i < 20; i++)
+        {
+            collection.RenderTick();
+        }
+
+        float first = item!.Color.Alpha;
+        collection.RenderTick();
+        float second = item.Color.Alpha;
+
+        Assert.NotEqual(first, second);
+        Assert.Equal(0.0, item.ReceiptOpacity);
+    }
+
+    [Fact]
+    public void SettingFlashAfterRowsHaveSettledStillMakesFlaggedRowsFlash()
+    {
+        var collection = new EntityHealthCollection { Receipt = new ReceiptPulse { FadeRenders = 1 } };
+        collection.Observe(FlaggedReport("entity-1", HealthFlags.Teleport));
+        collection.Observe(HealthyReport("entity-2"));
+        for (int i = 0; i < 5; i++)
+        {
+            collection.RenderTick(); // both rows settle: faded, and nothing flashing
+        }
+
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? flagged);
+        collection.TryGetItem(new EntityKey("entity-2", null), out EntityHealthItemViewModel? healthy);
+        Color healthyColor = healthy!.Color;
+
+        collection.Colors.Flash = new FlashCadence { RendersPerPhase = 1 };
+        collection.RenderTick();
+        float first = flagged!.Color.Alpha;
+        collection.RenderTick();
+        float second = flagged.Color.Alpha;
+
+        Assert.NotEqual(first, second);
+        Assert.Equal(healthyColor, healthy.Color);
+    }
+
+    [Fact]
+    public void ClearingFlashRestoresAFlaggedRowsUndimmedColour()
+    {
+        var collection = new EntityHealthCollection();
+        collection.Colors.Flash = new FlashCadence { RendersPerPhase = 1 };
+        collection.Observe(FlaggedReport("entity-1", HealthFlags.Teleport));
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? item);
+        Color undimmed = collection.Colors.Resolve(item!.LatestReport!);
+
+        collection.RenderTick(); // render 1: the dim phase
+        Assert.NotEqual(undimmed, item.Color);
+
+        collection.Colors.Flash = null;
+        collection.RenderTick();
+
+        Assert.Equal(undimmed, item.Color);
+    }
+
+    [Fact]
+    public void RenderTickFlushLimitSpreadsABurstOverSeveralTicks()
+    {
+        var collection = new EntityHealthCollection { RenderTickFlushLimit = 2 };
+        for (int i = 0; i < 5; i++)
+        {
+            collection.Record(HealthyReport("entity-" + i));
+        }
+
+        collection.RenderTick();
+        Assert.Equal(2, collection.Items.Count);
+        collection.RenderTick();
+        Assert.Equal(4, collection.Items.Count);
+        collection.RenderTick();
+        Assert.Equal(5, collection.Items.Count);
+        Assert.Equal(0, collection.PendingRowCount);
     }
 
     private static EntityHealthReport HealthyReport(string entityId)

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -21,6 +22,9 @@ namespace Argus.Controls;
 /// </remarks>
 public sealed class EntityHealthItemViewModel : INotifyPropertyChanged
 {
+    private static readonly ConcurrentDictionary<string, PropertyChangedEventArgs> ChangedArgs =
+        new ConcurrentDictionary<string, PropertyChangedEventArgs>(StringComparer.Ordinal);
+
     private readonly Dictionary<HealthFlags, long> _flagCounts = new Dictionary<HealthFlags, long>();
     private EntityHealthReport? _report;
     private EntitySample? _sample;
@@ -135,6 +139,9 @@ public sealed class EntityHealthItemViewModel : INotifyPropertyChanged
     /// </summary>
     internal long LastUpdatedRenderCount { get; set; }
 
+    /// <summary>Whether the row is in its collection's set of rows <see cref="EntityHealthCollection.RenderTick"/> still has to animate.</summary>
+    internal bool IsAnimating { get; set; }
+
     /// <summary>Whether the row's "more" section — the remaining 6DOF fields — is expanded.</summary>
     public bool IsExpanded
     {
@@ -167,13 +174,26 @@ public sealed class EntityHealthItemViewModel : INotifyPropertyChanged
     /// <returns><c>true</c> if the row was clean before this call, i.e. it has just become dirty.</returns>
     internal bool Accumulate(EntityHealthReport report, EntitySample? sample)
     {
+        // Indexed over HealthFlagInfo.All, not HealthFlagInfo.Split: this runs once per report on
+        // the UI thread, and an iterator per report is garbage the collector then has to stop for.
         bool raisedAny = false;
-        foreach (HealthFlags flag in HealthFlagInfo.Split(report.Flags))
+        HealthFlags raised = report.Flags;
+        if (raised != HealthFlags.None)
         {
-            long count;
-            _flagCounts.TryGetValue(flag, out count);
-            _flagCounts[flag] = count + 1L;
-            raisedAny = true;
+            IReadOnlyList<HealthFlags> all = HealthFlagInfo.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                HealthFlags flag = all[i];
+                if ((raised & flag) == HealthFlags.None)
+                {
+                    continue;
+                }
+
+                long count;
+                _flagCounts.TryGetValue(flag, out count);
+                _flagCounts[flag] = count + 1L;
+                raisedAny = true;
+            }
         }
 
         _pendingReport = report;
@@ -244,7 +264,18 @@ public sealed class EntityHealthItemViewModel : INotifyPropertyChanged
 
     private void OnPropertyChanged(string? propertyName)
     {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        PropertyChangedEventHandler? handler = PropertyChanged;
+        if (handler == null)
+        {
+            return;
+        }
+
+        // The arguments carry nothing but the name, so one instance per property serves every
+        // row: a busy board raises several of these per published row, and they were all garbage.
+        PropertyChangedEventArgs args = propertyName == null
+            ? new PropertyChangedEventArgs(null)
+            : ChangedArgs.GetOrAdd(propertyName, name => new PropertyChangedEventArgs(name));
+        handler(this, args);
     }
 
     /// <summary>
