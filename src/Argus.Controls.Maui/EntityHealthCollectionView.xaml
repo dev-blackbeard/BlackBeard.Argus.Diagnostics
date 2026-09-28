@@ -46,21 +46,25 @@
                                 Command="{Binding ToggleExpandedCommand}"
                                 FontSize="12" Padding="4" />
 
+                        <!-- Bound to ExpandedSample, not LatestSample: a hidden element's bindings still re-evaluate on
+                             every change of their source, and these nine would otherwise do so on every
+                             report for every collapsed row. ExpandedSample is null and silent while the
+                             row is collapsed, and raised once when it expands. -->
                         <VerticalStackLayout Spacing="2" IsVisible="{Binding IsExpanded}">
                             <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="12">
-                                <Label Grid.Column="0" Text="{Binding LatestSample.RollDegrees, StringFormat='roll {0:F1}°'}" />
-                                <Label Grid.Column="1" Text="{Binding LatestSample.PitchDegrees, StringFormat='pitch {0:F1}°'}" />
-                                <Label Grid.Column="2" Text="{Binding LatestSample.YawDegrees, StringFormat='yaw {0:F1}°'}" />
+                                <Label Grid.Column="0" Text="{Binding ExpandedSample.RollDegrees, StringFormat='roll {0:F1}°'}" />
+                                <Label Grid.Column="1" Text="{Binding ExpandedSample.PitchDegrees, StringFormat='pitch {0:F1}°'}" />
+                                <Label Grid.Column="2" Text="{Binding ExpandedSample.YawDegrees, StringFormat='yaw {0:F1}°'}" />
                             </Grid>
                             <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="12">
-                                <Label Grid.Column="0" Text="{Binding LatestSample.VelocityNorthMetersPerSecond, StringFormat='vN {0:F1}'}" />
-                                <Label Grid.Column="1" Text="{Binding LatestSample.VelocityEastMetersPerSecond, StringFormat='vE {0:F1}'}" />
-                                <Label Grid.Column="2" Text="{Binding LatestSample.VelocityDownMetersPerSecond, StringFormat='vD {0:F1}'}" />
+                                <Label Grid.Column="0" Text="{Binding ExpandedSample.VelocityNorthMetersPerSecond, StringFormat='vN {0:F1}'}" />
+                                <Label Grid.Column="1" Text="{Binding ExpandedSample.VelocityEastMetersPerSecond, StringFormat='vE {0:F1}'}" />
+                                <Label Grid.Column="2" Text="{Binding ExpandedSample.VelocityDownMetersPerSecond, StringFormat='vD {0:F1}'}" />
                             </Grid>
                             <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="12">
-                                <Label Grid.Column="0" Text="{Binding LatestSample.AngularVelocityXDegreesPerSecond, StringFormat='wX {0:F1}'}" />
-                                <Label Grid.Column="1" Text="{Binding LatestSample.AngularVelocityYDegreesPerSecond, StringFormat='wY {0:F1}'}" />
-                                <Label Grid.Column="2" Text="{Binding LatestSample.AngularVelocityZDegreesPerSecond, StringFormat='wZ {0:F1}'}" />
+                                <Label Grid.Column="0" Text="{Binding ExpandedSample.AngularVelocityXDegreesPerSecond, StringFormat='wX {0:F1}'}" />
+                                <Label Grid.Column="1" Text="{Binding ExpandedSample.AngularVelocityYDegreesPerSecond, StringFormat='wY {0:F1}'}" />
+                                <Label Grid.Column="2" Text="{Binding ExpandedSample.AngularVelocityZDegreesPerSecond, StringFormat='wZ {0:F1}'}" />
                             </Grid>
                         </VerticalStackLayout>
 

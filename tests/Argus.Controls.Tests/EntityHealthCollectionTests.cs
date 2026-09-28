@@ -386,6 +386,73 @@ public sealed class EntityHealthCollectionTests
         Assert.Empty(collection.Items);
     }
 
+    [Fact]
+    public void ExpandedSampleIsNullWhileCollapsedAndTheLatestSampleWhileExpanded()
+    {
+        var collection = new EntityHealthCollection();
+        var sample = new EntitySample("entity-1", DateTime.UtcNow);
+        collection.Observe(HealthyReport("entity-1"), sample);
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? item);
+
+        Assert.Null(item!.ExpandedSample);
+
+        item.ToggleExpandedCommand.Execute(null);
+
+        Assert.Same(sample, item.ExpandedSample);
+    }
+
+    [Fact]
+    public void ACollapsedRowRaisesNoExpandedSampleChangeWhenANewSampleArrives()
+    {
+        var collection = new EntityHealthCollection();
+        collection.Observe(HealthyReport("entity-1"), new EntitySample("entity-1", DateTime.UtcNow));
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? item);
+
+        var raised = new List<string?>();
+        item!.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        collection.Observe(HealthyReport("entity-1"), new EntitySample("entity-1", DateTime.UtcNow));
+
+        // Bindings on the hidden detail section hang off ExpandedSample; it must stay silent.
+        Assert.Contains(nameof(EntityHealthItemViewModel.LatestSample), raised);
+        Assert.DoesNotContain(nameof(EntityHealthItemViewModel.ExpandedSample), raised);
+    }
+
+    [Fact]
+    public void AnExpandedRowRaisesExpandedSampleWithEachNewSample()
+    {
+        var collection = new EntityHealthCollection();
+        collection.Observe(HealthyReport("entity-1"), new EntitySample("entity-1", DateTime.UtcNow));
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? item);
+        item!.IsExpanded = true;
+
+        var raised = new List<string?>();
+        item.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        var next = new EntitySample("entity-1", DateTime.UtcNow);
+        collection.Observe(HealthyReport("entity-1"), next);
+
+        Assert.Single(raised, name => name == nameof(EntityHealthItemViewModel.ExpandedSample));
+        Assert.Same(next, item.ExpandedSample);
+    }
+
+    [Fact]
+    public void ExpandingOrCollapsingRaisesExpandedSampleSoDetailBindingsRefreshOrClear()
+    {
+        var collection = new EntityHealthCollection();
+        collection.Observe(HealthyReport("entity-1"), new EntitySample("entity-1", DateTime.UtcNow));
+        collection.TryGetItem(new EntityKey("entity-1", null), out EntityHealthItemViewModel? item);
+
+        var raised = new List<string?>();
+        item!.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        item.ToggleExpandedCommand.Execute(null);
+        item.ToggleExpandedCommand.Execute(null);
+
+        Assert.Equal(2, raised.Count(name => name == nameof(EntityHealthItemViewModel.ExpandedSample)));
+        Assert.Null(item.ExpandedSample);
+    }
+
     private static EntityHealthReport HealthyReport(string entityId)
     {
         return new EntityHealthReport(entityId, DateTime.UtcNow, Array.Empty<HealthFinding>(), samplesObserved: 1, samplesEvaluated: 1, samplesFlagged: 0);
